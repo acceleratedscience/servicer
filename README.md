@@ -6,7 +6,7 @@
  1. Clone this repository:
 
  ```bash
- git clone git@github.com:acceleratedscience/stressor.git
+ git clone git@github.com:acceleratedscience/servicer.git
  ```
  2. Install Rust toolchain:
 ```bash
