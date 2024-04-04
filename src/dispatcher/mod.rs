@@ -1,14 +1,9 @@
 #![allow(dead_code)] // Remove this later
 
-use std::fs::read_to_string;
-
-use log::info;
 use pyo3::{pyclass, pymethods};
 use reqwest::{header::ACCEPT, Client};
-use yaml_rust::{Yaml, YamlLoader};
 
-use crate::error::ServicerError;
-use crate::helper;
+use crate::{error::ServicerError, helper, models::Configuration};
 
 #[pyclass]
 #[derive(Clone)]
@@ -16,9 +11,9 @@ pub struct ServiceConfig {
     name: String,
     port: u16,
     replicas: u16,
+    cloud: String,
 }
 
-static DEFAULT_TEMPLATE: &str = include_str!("../../template/service.yaml");
 static CLUSTER_ORCHESTRATOR: &str = "skypilot";
 
 /// Dispatcher is a struct that is responsible for creating the service configuration and launching
@@ -26,41 +21,29 @@ static CLUSTER_ORCHESTRATOR: &str = "skypilot";
 #[pyclass]
 pub struct Dispatcher {
     data: Option<ServiceConfig>,
-    template: Yaml,
+    template: Configuration,
     client: Client,
 }
 
 #[pymethods]
 impl Dispatcher {
     #[new]
-    pub fn new(path: Option<String>) -> Result<Self, ServicerError> {
+    pub fn new() -> Result<Self, ServicerError> {
         // Check if the user has installed the required python package
         if !helper::check_python_package(CLUSTER_ORCHESTRATOR) {
             return Err(ServicerError::PipPackageError(CLUSTER_ORCHESTRATOR));
         }
 
-        // fetch yaml template(s)
-        let yamls = match path {
-            Some(path) => {
-                let raw = read_to_string(path)?;
-                YamlLoader::load_from_str(&raw)?
-            }
-            _ => YamlLoader::load_from_str(DEFAULT_TEMPLATE)?,
-        };
-
-        let yaml = &yamls[0];
-
-        info!("{:?}", yaml["service"]);
-
         Ok(Self {
             data: None,
-            template: yaml.clone(),
+            template: Configuration::default(),
             client: Client::new(),
         })
     }
 
     pub fn update_service(&mut self, config: ServiceConfig) {
-        self.data = Some(config);
+        self.data = Some(config.clone());
+        // update the template with the new service configuration
     }
 
     pub fn up(&self) {}
@@ -95,13 +78,13 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let dispatcher = Dispatcher::new(None).unwrap();
-        assert_eq!(dispatcher.template["name"].as_str().unwrap(), "my-task");
+        let dispatcher = Dispatcher::new().unwrap();
+        assert_eq!(dispatcher.template.workdir, ".".to_string());
     }
 
     #[test]
     fn test_fetch() {
-        let dispatcher = Dispatcher::new(None).unwrap();
+        let dispatcher = Dispatcher::new().unwrap();
         let result = dispatcher
             .fetch("https://httpbin.org/get".to_string())
             .unwrap();

@@ -6,6 +6,7 @@ use self::dispatcher::Dispatcher;
 mod dispatcher;
 mod error;
 mod helper;
+mod models;
 
 /// A Python module implemented in Rust.
 #[pymodule]
