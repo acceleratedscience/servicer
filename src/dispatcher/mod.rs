@@ -1,18 +1,16 @@
 #![allow(dead_code)] // Remove this later
 
+use std::process::Command;
+
+use log::info;
 use pyo3::{pyclass, pymethods};
 use reqwest::{header::ACCEPT, Client};
 
-use crate::{error::ServicingError, helper, models::Configuration};
-
-#[pyclass]
-#[derive(Clone)]
-pub struct ServiceConfig {
-    name: String,
-    port: u16,
-    replicas: u16,
-    cloud: String,
-}
+use crate::{
+    error::ServicingError,
+    helper,
+    models::{Configuration, UserProvidedConfig},
+};
 
 static CLUSTER_ORCHESTRATOR: &str = "skypilot";
 
@@ -20,7 +18,7 @@ static CLUSTER_ORCHESTRATOR: &str = "skypilot";
 /// the cluster on a particular cloud provider.
 #[pyclass]
 pub struct Dispatcher {
-    data: Option<ServiceConfig>,
+    data: Option<UserProvidedConfig>,
     template: Configuration,
     client: Client,
 }
@@ -30,7 +28,7 @@ impl Dispatcher {
     #[new]
     pub fn new() -> Result<Self, ServicingError> {
         // Check if the user has installed the required python package
-        if !helper::check_python_package(CLUSTER_ORCHESTRATOR) {
+        if !helper::check_python_package_installed(CLUSTER_ORCHESTRATOR) {
             return Err(ServicingError::PipPackageError(CLUSTER_ORCHESTRATOR));
         }
 
@@ -41,12 +39,22 @@ impl Dispatcher {
         })
     }
 
-    pub fn update_service(&mut self, config: ServiceConfig) {
-        self.data = Some(config.clone());
-        // update the template with the new service configuration
+    pub fn update_service(&mut self, config: UserProvidedConfig) {
+        self.template.update(&config);
+        self.data = Some(config);
     }
 
-    pub fn up(&self) {}
+    pub fn up(&self) -> Result<(), ServicingError> {
+        let output = Command::new("sky").arg("--version").output();
+        match output {
+            Ok(output) => {
+                let version = String::from_utf8_lossy(&output.stdout);
+                info!("Sky version: {}", version);
+                Ok(())
+            }
+            Err(e) => Err(ServicingError::ClusterProvisionError(e.to_string())),
+        }
+    }
 
     pub fn down(&self) {}
 

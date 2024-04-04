@@ -12,6 +12,8 @@ pub enum ServicingError {
     PipPackageError(&'static str),
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
+    #[error("{0}")]
+    ClusterProvisionError(String),
 }
 
 impl From<ServicingError> for PyErr {

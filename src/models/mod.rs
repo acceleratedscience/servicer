@@ -1,4 +1,14 @@
+use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
+
+#[pyclass]
+#[derive(Clone)]
+pub struct UserProvidedConfig {
+    pub name: String,
+    pub port: u16,
+    pub replicas: u16,
+    pub cloud: String,
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Configuration {
@@ -7,6 +17,14 @@ pub struct Configuration {
     pub workdir: String,
     pub setup: String,
     pub run: String,
+}
+
+impl Configuration {
+    pub fn update(&mut self, config: &UserProvidedConfig) {
+        self.service.replicas = config.replicas;
+        self.resources.ports = config.port;
+        self.resources.cloud = config.cloud.clone();
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
