@@ -73,16 +73,14 @@ impl Dispatcher {
         // create tokio runtime that is single threaded
         let result = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .build()
-            .unwrap()
+            .build()?
             .block_on(async {
                 let res = self
                     .client
                     .get(url)
                     .header(ACCEPT, "application/json")
                     .send()
-                    .await
-                    .unwrap();
+                    .await?;
                 let body = res.text().await?;
                 Ok::<_, ServicerError>(body)
             })?;
