@@ -1,6 +1,5 @@
-use std::fs;
-use std::path::Path;
-use std::process::Command;
+use std::path::PathBuf;
+use std::{fs, path::Path, process::Command};
 
 use log::info;
 
@@ -17,19 +16,32 @@ pub(super) fn check_python_package_installed(package: &str) -> bool {
     }
 }
 
-pub(super) fn create_directory(dirname: &str) -> Result<(), ServicingError> {
+pub(super) fn create_directory(dirname: &str, home: bool) -> Result<PathBuf, ServicingError> {
+    let dir_name = if home {
+        match dirs::home_dir() {
+            Some(path) => path,
+            None => {
+                return Err(ServicingError::IO(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "User home directory not found.",
+                )))
+            }
+        }
+    } else {
+        Path::new(dirname).to_path_buf()
+    };
     // create a directory in the user home directory
-    match fs::create_dir(dirname) {
+    match fs::create_dir(&dir_name) {
         Err(e) => match e.kind() {
             std::io::ErrorKind::AlreadyExists => {
                 info!("Directory '{}' already exists.", dirname);
-                Ok(())
+                Ok(dir_name)
             }
             _ => Err(e)?,
         },
         _ => {
             info!("Directory '{}' created successfully.", dirname);
-            Ok(())
+            Ok(dir_name)
         }
     }
 }
@@ -46,7 +58,11 @@ pub(super) fn create_file(dirname: &str, filename: &str) -> Result<(), Servicing
     }
 }
 
-pub(super) fn write_file(dirname: &str, filename: &str, content: &str) -> Result<(), ServicingError> {
+pub(super) fn write_file(
+    dirname: &str,
+    filename: &str,
+    content: &str,
+) -> Result<(), ServicingError> {
     // write content to a file in the user home directory
     let path = Path::new(dirname).join(filename);
     match fs::write(&path, content) {

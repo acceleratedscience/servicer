@@ -1,6 +1,6 @@
 #![allow(dead_code)] // Remove this later
 
-use std::process::Command;
+use std::{path::PathBuf, process::Command};
 
 use log::info;
 use pyo3::{pyclass, pymethods};
@@ -21,6 +21,7 @@ pub struct Dispatcher {
     data: Option<UserProvidedConfig>,
     template: Configuration,
     client: Client,
+    pwd: Option<PathBuf>,
 }
 
 #[pymethods]
@@ -36,12 +37,19 @@ impl Dispatcher {
             data: None,
             template: Configuration::default(),
             client: Client::new(),
+            pwd: None,
         })
     }
 
-    pub fn update_service(&mut self, config: UserProvidedConfig) {
+    pub fn update_service(&mut self, config: UserProvidedConfig) -> Result<(), ServicingError> {
+        // Update the configuration with the user provided configuration
         self.template.update(&config);
         self.data = Some(config);
+
+        // create a directory in the user home directory
+        let pwd = helper::create_directory(".servicing", true)?;
+        self.pwd = Some(pwd);
+        Ok(())
     }
 
     pub fn up(&self) -> Result<(), ServicingError> {
