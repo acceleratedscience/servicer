@@ -1,5 +1,8 @@
-use std::path::PathBuf;
-use std::{fs, path::Path, process::Command};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use log::info;
 
@@ -21,8 +24,8 @@ pub(super) fn create_directory(dirname: &str, home: bool) -> Result<PathBuf, Ser
         match dirs::home_dir() {
             Some(path) => path,
             None => {
-                return Err(ServicingError::IO(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
+                return Err(ServicingError::IO(io::Error::new(
+                    io::ErrorKind::NotFound,
                     "User home directory not found.",
                 )))
             }
@@ -30,10 +33,10 @@ pub(super) fn create_directory(dirname: &str, home: bool) -> Result<PathBuf, Ser
     } else {
         Path::new(dirname).to_path_buf()
     };
-    // create a directory in the user home directory
+    // create a directory in provided parent directory
     match fs::create_dir(&dir_name) {
         Err(e) => match e.kind() {
-            std::io::ErrorKind::AlreadyExists => {
+            io::ErrorKind::AlreadyExists => {
                 info!("Directory '{}' already exists.", dirname);
                 Ok(dir_name)
             }
@@ -47,7 +50,7 @@ pub(super) fn create_directory(dirname: &str, home: bool) -> Result<PathBuf, Ser
 }
 
 pub(super) fn create_file(dirname: &str, filename: &str) -> Result<(), ServicingError> {
-    // create a file in the user home directory
+    // create a file in the provided directory
     let path = Path::new(dirname).join(filename);
     match fs::File::create(&path) {
         Ok(_) => {
@@ -63,7 +66,7 @@ pub(super) fn write_file(
     filename: &str,
     content: &str,
 ) -> Result<(), ServicingError> {
-    // write content to a file in the user home directory
+    // write content to a file in the provided file
     let path = Path::new(dirname).join(filename);
     match fs::write(&path, content) {
         Ok(_) => {
