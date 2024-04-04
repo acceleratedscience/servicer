@@ -3,7 +3,7 @@
 use pyo3::{pyclass, pymethods};
 use reqwest::{header::ACCEPT, Client};
 
-use crate::{error::ServicerError, helper, models::Configuration};
+use crate::{error::ServicingError, helper, models::Configuration};
 
 #[pyclass]
 #[derive(Clone)]
@@ -28,10 +28,10 @@ pub struct Dispatcher {
 #[pymethods]
 impl Dispatcher {
     #[new]
-    pub fn new() -> Result<Self, ServicerError> {
+    pub fn new() -> Result<Self, ServicingError> {
         // Check if the user has installed the required python package
         if !helper::check_python_package(CLUSTER_ORCHESTRATOR) {
-            return Err(ServicerError::PipPackageError(CLUSTER_ORCHESTRATOR));
+            return Err(ServicingError::PipPackageError(CLUSTER_ORCHESTRATOR));
         }
 
         Ok(Self {
@@ -52,7 +52,7 @@ impl Dispatcher {
 
     pub fn status(&self) {}
 
-    pub fn fetch(&self, url: String) -> Result<String, ServicerError> {
+    pub fn fetch(&self, url: String) -> Result<String, ServicingError> {
         // create tokio runtime that is single threaded
         let result = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -65,7 +65,7 @@ impl Dispatcher {
                     .send()
                     .await?;
                 let body = res.text().await?;
-                Ok::<_, ServicerError>(body)
+                Ok::<_, ServicingError>(body)
             })?;
 
         Ok(result)

@@ -5,7 +5,7 @@
  1. Clone this repository:
 
  ```bash
- git clone git@github.com:acceleratedscience/servicer.git
+ git clone git@github.com:acceleratedscience/servicing.git
  ```
  2. Install Rust toolchain:
  ```bash
