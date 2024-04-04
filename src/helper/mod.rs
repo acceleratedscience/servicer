@@ -22,12 +22,14 @@ pub(super) fn check_python_package_installed(package: &str) -> bool {
 pub(super) fn create_directory(dirname: &str, home: bool) -> Result<PathBuf, ServicingError> {
     let dir_name = if home {
         match dirs::home_dir() {
-            Some(path) => path,
+            Some(path) => {
+                info!("User home directory found: {:?}", path);
+                Path::new(&path).join(dirname)
+            }
             None => {
-                return Err(ServicingError::IO(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    "User home directory not found.",
-                )))
+                return Err(ServicingError::General(
+                    "User home directory not found".to_string(),
+                ))
             }
         }
     } else {
@@ -49,28 +51,23 @@ pub(super) fn create_directory(dirname: &str, home: bool) -> Result<PathBuf, Ser
     }
 }
 
-pub(super) fn create_file(dirname: &str, filename: &str) -> Result<(), ServicingError> {
+pub(super) fn create_file(dirname: &PathBuf, filename: &str) -> Result<PathBuf, ServicingError> {
     // create a file in the provided directory
     let path = Path::new(dirname).join(filename);
     match fs::File::create(&path) {
         Ok(_) => {
             info!("File '{:?}' created successfully.", path);
-            Ok(())
+            Ok(path)
         }
         Err(e) => Err(e)?,
     }
 }
 
-pub(super) fn write_file(
-    dirname: &str,
-    filename: &str,
-    content: &str,
-) -> Result<(), ServicingError> {
+pub(super) fn write_to_file(filepath: &PathBuf, content: &str) -> Result<(), ServicingError> {
     // write content to a file in the provided file
-    let path = Path::new(dirname).join(filename);
-    match fs::write(&path, content) {
+    match fs::write(filepath, content) {
         Ok(_) => {
-            info!("Content written to file '{:?}' successfully.", path);
+            info!("Content written to file '{:?}' successfully.", filepath);
             Ok(())
         }
         Err(e) => Err(e)?,

@@ -14,6 +14,8 @@ pub enum ServicingError {
     ReqwestError(#[from] reqwest::Error),
     #[error("{0}")]
     ClusterProvisionError(String),
+    #[error("{0}")]
+    SerdeYamlError(#[from] serde_yaml::Error),
 }
 
 impl From<ServicingError> for PyErr {
