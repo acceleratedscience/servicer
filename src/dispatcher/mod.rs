@@ -41,7 +41,10 @@ impl Dispatcher {
         })
     }
 
-    pub fn update_service(&mut self, config: Option<UserProvidedConfig>) -> Result<(), ServicingError> {
+    pub fn update_service(
+        &mut self,
+        config: Option<UserProvidedConfig>,
+    ) -> Result<(), ServicingError> {
         // Update the configuration with the user provided configuration
         if let Some(config) = config {
             info!("Updating the configuration with the user provided configuration");

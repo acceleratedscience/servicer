@@ -2,7 +2,7 @@ use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
 
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct UserProvidedConfig {
     pub name: String,
     pub port: u16,
@@ -17,6 +17,24 @@ pub struct Configuration {
     pub workdir: String,
     pub setup: String,
     pub run: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Caches(Vec<Cache>);
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Cache {
+    pub user_config: UserProvidedConfig,
+    pub cluster_details: ClusterDetails,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ClusterDetails {
+    pub cluster_name: String,
+    pub cluster_id: String,
+    pub cluster_status: String,
+    pub cluster_ip: String,
+    pub cluster_port: u16,
 }
 
 impl Configuration {
