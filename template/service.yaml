@@ -1,0 +1,22 @@
+service:
+  readiness_probe: /health
+  replicas: 2
+
+resources:
+  ports: 8080
+  cloud: aws 
+  cpus: 4+
+  memory: 10+
+  disk_size: 50
+
+workdir: .
+
+setup: | 
+ conda install cudatoolkit -y
+ pip install gt4sd-trainer-hf-pl
+ pip install .
+ pip install fastapi
+ pip install uvicorn
+
+run: |
+  python service.py

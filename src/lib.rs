@@ -1,17 +1,16 @@
+use env_logger::Builder;
 use pyo3::prelude::*;
+
+use self::dispatcher::Dispatcher;
 
 mod dispatcher;
 mod error;
-
-/// Formats the sum of two numbers as string.
-#[pyfunction]
-fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
-}
+mod helper;
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn servicer(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
+fn servicing(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    Builder::new().filter_level(log::LevelFilter::Info).init();
+    m.add_class::<Dispatcher>()?;
     Ok(())
 }
