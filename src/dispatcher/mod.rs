@@ -1,6 +1,6 @@
 #![allow(dead_code)] // Remove this later
 
-use std::{path::PathBuf, process::Command};
+use std::{collections::HashMap, path::PathBuf, process::Command};
 
 use log::info;
 use pyo3::{pyclass, pymethods};
@@ -18,10 +18,16 @@ static CLUSTER_ORCHESTRATOR: &str = "skypilot";
 /// the cluster on a particular cloud provider.
 #[pyclass]
 pub struct Dispatcher {
+    client: Client,
+    service: HashMap<String, Service>,
+}
+
+#[pyclass]
+struct Service {
     data: Option<UserProvidedConfig>,
     template: Configuration,
-    client: Client,
     filepath: Option<PathBuf>,
+    url: Option<String>,
 }
 
 #[pymethods]
@@ -33,54 +39,108 @@ impl Dispatcher {
             return Err(ServicingError::PipPackageError(CLUSTER_ORCHESTRATOR));
         }
 
-        Ok(Self {
-            data: None,
-            template: Configuration::default(),
+        Ok(Dispatcher {
             client: Client::new(),
-            filepath: None,
+            service: HashMap::new(),
         })
     }
 
-    pub fn update_service(
+    pub fn add_service(
         &mut self,
+        name: String,
         config: Option<UserProvidedConfig>,
     ) -> Result<(), ServicingError> {
+        let mut service = Service {
+            data: None,
+            template: Configuration::default(),
+            filepath: None,
+            url: None,
+        };
+
         // Update the configuration with the user provided configuration
         if let Some(config) = config {
             info!("Updating the configuration with the user provided configuration");
-            self.template.update(&config);
-            self.data = Some(config);
+            service.template.update(&config);
+            service.data = Some(config);
         }
 
         // create a directory in the user home directory
         let pwd = helper::create_directory(".servicing", true)?;
 
         // create a file in the created directory
-        let file = helper::create_file(&pwd, "service.yaml")?;
+        let file = helper::create_file(&pwd, &(name.clone() + "_service.yaml"))?;
 
         // write the configuration to the file
-        let content = serde_yaml::to_string(&self.template)?;
+        let content = serde_yaml::to_string(&service.template)?;
         helper::write_to_file(&file, &content)?;
 
-        self.filepath = Some(file);
+        service.filepath = Some(file);
+
+        self.service.insert(name, service);
+
         Ok(())
     }
 
-    pub fn up(&self) -> Result<(), ServicingError> {
+    pub fn up(&self, name: String) -> Result<(), ServicingError> {
         let output = Command::new("sky").arg("--version").output();
         match output {
             Ok(output) => {
                 let version = String::from_utf8_lossy(&output.stdout);
                 info!("Sky version: {}", version);
-                Ok(())
             }
-            Err(e) => Err(ServicingError::ClusterProvisionError(e.to_string())),
+            Err(e) => return Err(ServicingError::ClusterProvisionError(e.to_string())),
+        }
+        // get the service configuration
+        if let Some(service) = self.service.get(&name) {
+            info!("Launching the cluster with the configuration: {:?}", name);
+            // launch the cluster
+            let _child = Command::new("sky")
+                .arg("serve")
+                .arg("up")
+                .arg(
+                    service
+                        .filepath
+                        .as_ref()
+                        .ok_or(ServicingError::General("filepath not found".to_string()))?,
+                )
+                .spawn()?;
+            return Ok(());
+        }
+        Err(ServicingError::ServiceNotFound(name))
+    }
+
+    pub fn down(&self, name: String) -> Result<(), ServicingError> {
+        // get the service configuration
+        if let Some(service) = self.service.get(&name) {
+            info!("Launching the cluster with the configuration: {:?}", name);
+            // launch the cluster
+            let _child = Command::new("sky")
+                .arg("serve")
+                .arg("down")
+                .arg(
+                    service
+                        .filepath
+                        .as_ref()
+                        .ok_or(ServicingError::General("filepath not found".to_string()))?,
+                )
+                .spawn()?;
+            return Ok(());
+        }
+        Err(ServicingError::ServiceNotFound(name))
+    }
+
+    pub fn status(&self, name: Option<String>) {
+        match name {
+            Some(name) => {
+                info!("Getting the status of the service: {:?}", name);
+            }
+            _ => {
+                info!("Getting the status of all the services");
+            }
         }
     }
 
-    pub fn down(&self) {}
-
-    pub fn status(&self) {}
+    pub fn save(&self) {}
 
     pub fn fetch(&self, url: String) -> Result<String, ServicingError> {
         // create tokio runtime that is single threaded
@@ -105,12 +165,6 @@ impl Dispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_new() {
-        let dispatcher = Dispatcher::new().unwrap();
-        assert_eq!(dispatcher.template.workdir, ".".to_string());
-    }
 
     #[test]
     fn test_fetch() {

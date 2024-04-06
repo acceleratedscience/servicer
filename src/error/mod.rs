@@ -16,6 +16,8 @@ pub enum ServicingError {
     ClusterProvisionError(String),
     #[error("{0}")]
     SerdeYamlError(#[from] serde_yaml::Error),
+    #[error("Service {0} not found")]
+    ServiceNotFound(String),
 }
 
 impl From<ServicingError> for PyErr {

@@ -30,7 +30,6 @@ pub struct Cache {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClusterDetails {
-    pub cluster_name: String,
     pub cluster_id: String,
     pub cluster_status: String,
     pub cluster_ip: String,
@@ -82,5 +81,25 @@ impl Default for Configuration {
                 + "pip install uvicorn\n",
             run: "python service.py\n".to_string(),
         }
+    }
+}
+
+#[allow(dead_code)]
+pub fn test_config() -> Configuration {
+    Configuration {
+        service: Service {
+            readiness_probe: "/".to_string(),
+            replicas: 1,
+        },
+        resources: Resources {
+            ports: 8080,
+            cpus: "4+".to_string(),
+            memory: "10+".to_string(),
+            cloud: "aws".to_string(),
+            disk_size: 50,
+        },
+        setup: "".to_string(),
+        workdir: ".".to_string(),
+        run: "python -m http.server 8080\n".to_string(),
     }
 }
