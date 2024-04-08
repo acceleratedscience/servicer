@@ -1,6 +1,11 @@
 #![allow(dead_code)] // Remove this later
 
-use std::{collections::HashMap, path::PathBuf, process::Command};
+use std::{
+    collections::HashMap,
+    io::{Read, Write},
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
 use log::info;
 use pyo3::{pyclass, pymethods};
@@ -18,9 +23,7 @@ static CLUSTER_ORCHESTRATOR: &str = "skypilot";
 /// Dispatcher is a struct that is responsible for creating the service configuration and launching
 /// the cluster on a particular cloud provider.
 #[pyclass]
-#[derive(Deserialize, Serialize)]
 pub struct Dispatcher {
-    #[serde(skip)]
     client: Client,
     service: HashMap<String, Service>,
 }
@@ -61,7 +64,7 @@ impl Dispatcher {
             url: None,
         };
 
-        // Update the configuration with the user provided configuration
+        // Update the configuration with the user provided configuration, if provided
         if let Some(config) = config {
             info!("Updating the configuration with the user provided configuration");
             service.template.update(&config);
@@ -98,9 +101,11 @@ impl Dispatcher {
         if let Some(service) = self.service.get(&name) {
             info!("Launching the cluster with the configuration: {:?}", name);
             // launch the cluster
-            let _child = Command::new("sky")
+            let child = Command::new("sky")
                 .arg("serve")
                 .arg("up")
+                .arg("-n")
+                .arg(&name)
                 .arg(
                     service
                         .filepath
@@ -108,6 +113,12 @@ impl Dispatcher {
                         .ok_or(ServicingError::General("filepath not found".to_string()))?,
                 )
                 .spawn()?;
+
+            // Let sky handle the stdin and out
+
+            let output = child.wait_with_output()?;
+            info!("Output: {:?}", output);
+
             return Ok(());
         }
         Err(ServicingError::ServiceNotFound(name))
@@ -115,18 +126,13 @@ impl Dispatcher {
 
     pub fn down(&self, name: String) -> Result<(), ServicingError> {
         // get the service configuration
-        if let Some(service) = self.service.get(&name) {
+        if self.service.get(&name).is_some() {
             info!("Launching the cluster with the configuration: {:?}", name);
             // launch the cluster
             let _child = Command::new("sky")
                 .arg("serve")
                 .arg("down")
-                .arg(
-                    service
-                        .filepath
-                        .as_ref()
-                        .ok_or(ServicingError::General("filepath not found".to_string()))?,
-                )
+                .arg(&name)
                 .spawn()?;
             return Ok(());
         }
@@ -170,6 +176,20 @@ impl Dispatcher {
             .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
 
         Ok(())
+    }
+
+    pub fn list(&self) -> Result<Vec<String>, ServicingError> {
+        Ok(self.service.keys().cloned().collect())
+    }
+
+    pub fn get_url(&self, name: String) -> Result<String, ServicingError> {
+        if let Some(service) = self.service.get(&name) {
+            if let Some(url) = &service.url {
+                return Ok(url.clone());
+            }
+            return Err(ServicingError::General("Service is down".to_string()));
+        }
+        Err(ServicingError::ServiceNotFound(name))
     }
 
     pub fn fetch(&self, url: String) -> Result<String, ServicingError> {

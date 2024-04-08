@@ -25,6 +25,10 @@ impl Configuration {
         self.resources.ports = config.port;
         self.resources.cloud = config.cloud.clone();
     }
+
+    pub fn test_config() -> Configuration {
+        test_config()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -67,7 +71,7 @@ impl Default for Configuration {
     }
 }
 
-#[allow(dead_code)]
+#[inline]
 pub fn test_config() -> Configuration {
     Configuration {
         service: Service {

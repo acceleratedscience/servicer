@@ -8,7 +8,7 @@ pub enum ServicingError {
     General(String),
     #[error("{0}")]
     IO(#[from] std::io::Error),
-    #[error("{0}")]
+    #[error("Package {0} is not installed")]
     PipPackageError(&'static str),
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
