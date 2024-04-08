@@ -19,23 +19,6 @@ pub struct Configuration {
     pub run: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Caches(Vec<Cache>);
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Cache {
-    pub user_config: UserProvidedConfig,
-    pub cluster_details: ClusterDetails,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ClusterDetails {
-    pub cluster_id: String,
-    pub cluster_status: String,
-    pub cluster_ip: String,
-    pub cluster_port: u16,
-}
-
 impl Configuration {
     pub fn update(&mut self, config: &UserProvidedConfig) {
         self.service.replicas = config.replicas;

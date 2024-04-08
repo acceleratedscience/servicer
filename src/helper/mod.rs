@@ -73,3 +73,28 @@ pub(super) fn write_to_file(filepath: &PathBuf, content: &str) -> Result<(), Ser
         Err(e) => Err(e)?,
     }
 }
+
+pub(super) fn write_to_file_binary(
+    filepath: &PathBuf,
+    content: &[u8],
+) -> Result<(), ServicingError> {
+    // write content to a file in the provided file
+    match fs::write(filepath, content) {
+        Ok(_) => {
+            info!("Content written to file '{:?}' successfully.", filepath);
+            Ok(())
+        }
+        Err(e) => Err(e)?,
+    }
+}
+
+pub(super) fn read_from_file_binary(filepath: &PathBuf) -> Result<Vec<u8>, ServicingError> {
+    // read content from a file in the provided file
+    match fs::read(filepath) {
+        Ok(content) => {
+            info!("Content read from file '{:?}' successfully.", filepath);
+            Ok(content)
+        }
+        Err(e) => Err(e)?,
+    }
+}

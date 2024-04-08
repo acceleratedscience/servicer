@@ -5,6 +5,7 @@ use std::{collections::HashMap, path::PathBuf, process::Command};
 use log::info;
 use pyo3::{pyclass, pymethods};
 use reqwest::{header::ACCEPT, Client};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     error::ServicingError,
@@ -17,12 +18,15 @@ static CLUSTER_ORCHESTRATOR: &str = "skypilot";
 /// Dispatcher is a struct that is responsible for creating the service configuration and launching
 /// the cluster on a particular cloud provider.
 #[pyclass]
+#[derive(Deserialize, Serialize)]
 pub struct Dispatcher {
+    #[serde(skip)]
     client: Client,
     service: HashMap<String, Service>,
 }
 
 #[pyclass]
+#[derive(Debug, Deserialize, Serialize)]
 struct Service {
     data: Option<UserProvidedConfig>,
     template: Configuration,
@@ -129,18 +133,44 @@ impl Dispatcher {
         Err(ServicingError::ServiceNotFound(name))
     }
 
-    pub fn status(&self, name: Option<String>) {
-        match name {
-            Some(name) => {
-                info!("Getting the status of the service: {:?}", name);
-            }
-            _ => {
-                info!("Getting the status of all the services");
-            }
+    pub fn status(&self, name: String) -> Result<(), ServicingError> {
+        // Check if the service exists
+        if let Some(service) = self.service.get(&name) {
+            info!("Checking the status of the service: {:?}", name);
+            info!("Service configuration: {:?}", service);
+            return Ok(());
         }
+        Err(ServicingError::ServiceNotFound(name))
     }
 
-    pub fn save(&self) {}
+    pub fn save(&self) -> Result<(), ServicingError> {
+        let bin = bincode::serialize(&self.service)?;
+
+        helper::write_to_file_binary(
+            &helper::create_file(
+                &helper::create_directory(".servicing", true)?,
+                "services.bin",
+            )?,
+            &bin,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn load(&mut self, location: Option<PathBuf>) -> Result<(), ServicingError> {
+        let location = if let Some(location) = location {
+            location
+        } else {
+            helper::create_directory(".servicing", true)?.join("services.bin")
+        };
+
+        let bin = helper::read_from_file_binary(&location)?;
+
+        self.service
+            .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
+
+        Ok(())
+    }
 
     pub fn fetch(&self, url: String) -> Result<String, ServicingError> {
         // create tokio runtime that is single threaded
