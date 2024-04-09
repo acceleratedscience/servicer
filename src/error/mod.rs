@@ -18,6 +18,8 @@ pub enum ServicingError {
     ClusterProvisionError(String),
     #[error("{0}")]
     SerdeYamlError(#[from] serde_yaml::Error),
+    #[error("{0}")]
+    SerdeJsonError(#[from] serde_json::Error),
     #[error("Service {0} not found")]
     ServiceNotFound(String),
     #[error("Service {0} not up")]

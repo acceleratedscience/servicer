@@ -227,12 +227,15 @@ impl Dispatcher {
         }
     }
 
-    pub fn status(&self, name: String) -> Result<(), ServicingError> {
+    pub fn status(&self, name: String, pretty: Option<bool>) -> Result<String, ServicingError> {
         // Check if the service exists
         if let Some(service) = self.service.lock()?.get(&name) {
             info!("Checking the status of the service: {:?}", name);
-            info!("Service configuration: {:?}", service);
-            return Ok(());
+            return Ok(match pretty {
+                Some(true) => serde_json::to_string_pretty(service)?,
+                Some(false) => serde_json::to_string(service)?,
+                None => serde_json::to_string(service)?,
+            });
         }
         Err(ServicingError::ServiceNotFound(name))
     }
