@@ -26,6 +26,7 @@ impl Configuration {
         self.resources.cloud = config.cloud.clone();
     }
 
+    #[allow(dead_code)]
     pub fn test_config() -> Configuration {
         test_config()
     }

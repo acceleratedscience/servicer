@@ -1,14 +1,10 @@
 #![allow(dead_code)] // Remove this later
 
-use std::{
-    collections::HashMap,
-    io::{Read, Write},
-    path::PathBuf,
-    process::{Command, Stdio},
-};
+use std::{collections::HashMap, path::PathBuf, process::Command, sync::OnceLock};
 
 use log::info;
 use pyo3::{pyclass, pymethods};
+use regex::Regex;
 use reqwest::{header::ACCEPT, Client};
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +15,8 @@ use crate::{
 };
 
 static CLUSTER_ORCHESTRATOR: &str = "skypilot";
+
+static REGEX_URL: OnceLock<Regex> = OnceLock::new();
 
 /// Dispatcher is a struct that is responsible for creating the service configuration and launching
 /// the cluster on a particular cloud provider.
@@ -46,7 +44,11 @@ impl Dispatcher {
             return Err(ServicingError::PipPackageError(CLUSTER_ORCHESTRATOR));
         }
 
-        Ok(Dispatcher {
+        let re = Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}:\d+\b")?;
+
+        REGEX_URL.get_or_init(|| re);
+
+        Ok(Self {
             client: Client::new(),
             service: HashMap::new(),
         })
@@ -66,7 +68,7 @@ impl Dispatcher {
 
         // Update the configuration with the user provided configuration, if provided
         if let Some(config) = config {
-            info!("Updating the configuration with the user provided configuration");
+            info!("Adding the configuration with the user provided configuration");
             service.template.update(&config);
             service.data = Some(config);
         }
@@ -88,7 +90,7 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub fn up(&self, name: String) -> Result<(), ServicingError> {
+    pub fn up(&mut self, name: String) -> Result<(), ServicingError> {
         let output = Command::new("sky").arg("--version").output();
         match output {
             Ok(output) => {
@@ -98,10 +100,11 @@ impl Dispatcher {
             Err(e) => return Err(ServicingError::ClusterProvisionError(e.to_string())),
         }
         // get the service configuration
-        if let Some(service) = self.service.get(&name) {
-            info!("Launching the cluster with the configuration: {:?}", name);
+        if let Some(service) = self.service.get_mut(&name) {
+            info!("Launching the service with the configuration: {:?}", name);
             // launch the cluster
-            let child = Command::new("sky")
+            let mut child = Command::new("sky")
+                // .stdout(Stdio::piped())
                 .arg("serve")
                 .arg("up")
                 .arg("-n")
@@ -114,26 +117,58 @@ impl Dispatcher {
                 )
                 .spawn()?;
 
-            // Let sky handle the stdin and out
+            // ley skypilot handle the CLI interaction
 
-            let output = child.wait_with_output()?;
-            info!("Output: {:?}", output);
+            let output = child.wait()?;
+            if !output.success() {
+                return Err(ServicingError::ClusterProvisionError(format!(
+                    "Cluster provision failed with code {:?}",
+                    output
+                )));
+            }
+
+            // get the url of the service
+            let output = Command::new("sky")
+                .arg("serve")
+                .arg("status")
+                .arg(&name)
+                .output()?
+                .stdout;
+
+            // parse the output to get the url
+            let output = String::from_utf8_lossy(&output);
+
+            let url = REGEX_URL
+                .get()
+                .ok_or(ServicingError::General("Could not get REGEX".to_string()))?
+                .find(&output)
+                .ok_or(ServicingError::General(
+                    "Cannot find service URL".to_string(),
+                ))?
+                .as_str();
+
+            service.url = Some(url.to_string());
 
             return Ok(());
         }
         Err(ServicingError::ServiceNotFound(name))
     }
 
-    pub fn down(&self, name: String) -> Result<(), ServicingError> {
+    pub fn down(&mut self, name: String) -> Result<(), ServicingError> {
         // get the service configuration
-        if self.service.get(&name).is_some() {
-            info!("Launching the cluster with the configuration: {:?}", name);
+        if let Some(service) = self.service.get_mut(&name) {
+            info!("Destroying the service with the configuration: {:?}", name);
             // launch the cluster
-            let _child = Command::new("sky")
+            let mut child = Command::new("sky")
                 .arg("serve")
                 .arg("down")
                 .arg(&name)
                 .spawn()?;
+
+            child.wait()?;
+
+            service.url = None;
+
             return Ok(());
         }
         Err(ServicingError::ServiceNotFound(name))

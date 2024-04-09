@@ -1075,6 +1075,7 @@ dependencies = [
  "env_logger",
  "log",
  "pyo3",
+ "regex",
  "reqwest",
  "serde",
  "serde_yaml",

@@ -1,3 +1,5 @@
+use std::sync::mpsc;
+
 use pyo3::{exceptions::PyRuntimeError, PyErr};
 use thiserror::Error;
 
@@ -20,6 +22,10 @@ pub enum ServicingError {
     ServiceNotFound(String),
     #[error("{0}")]
     BinaryEncodeError(#[from] bincode::Error),
+    #[error("{0}")]
+    SendError(#[from] mpsc::SendError<String>),
+    #[error("{0}")]
+    RegexError(#[from] regex::Error),
 }
 
 impl From<ServicingError> for PyErr {

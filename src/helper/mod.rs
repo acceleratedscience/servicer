@@ -1,7 +1,10 @@
 use std::{
-    fs, io,
+    fs,
+    io::{self, Read},
     path::{Path, PathBuf},
     process::Command,
+    sync::mpsc::Receiver,
+    thread::{spawn, JoinHandle},
 };
 
 use log::info;
@@ -97,4 +100,46 @@ pub(super) fn read_from_file_binary(filepath: &PathBuf) -> Result<Vec<u8>, Servi
         }
         Err(e) => Err(e)?,
     }
+}
+
+#[allow(dead_code)]
+pub(super) fn read_from_child<T>(
+    mut child: T,
+) -> (Receiver<Vec<u8>>, JoinHandle<Result<(), ServicingError>>)
+where
+    T: Read + Send + 'static,
+{
+    let (tx, rx) = std::sync::mpsc::channel::<Vec<u8>>();
+    let handle = spawn(move || {
+        loop {
+            let mut buffer = [0; 2];
+
+            match child.read_exact(&mut buffer) {
+                Ok(_) => {
+                    if tx.send(buffer.to_vec()).is_err() {
+                        log::warn!("Failed to send data to the receiver.");
+                        return Err(ServicingError::General(
+                            "Failed to send data to the receiver.".to_string(),
+                        ));
+                    }
+                }
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::UnexpectedEof {
+                        info!("End of file reached.");
+                        if tx.send(buffer.to_vec()).is_err() {
+                            log::warn!("Failed to send data to the receiver.");
+                            return Err(ServicingError::General(
+                                "Failed to send data to the receiver.".to_string(),
+                            ));
+                        }
+                        break;
+                    } else {
+                        return Err(ServicingError::General(e.to_string()));
+                    }
+                }
+            }
+        }
+        Ok(())
+    });
+    (rx, handle)
 }
