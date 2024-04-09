@@ -67,6 +67,20 @@ pub(super) fn create_file(dirname: &PathBuf, filename: &str) -> Result<PathBuf, 
     }
 }
 
+pub(super) fn delete_file(filepath: &PathBuf) -> Result<(), ServicingError> {
+    // delete a file in the provided directory
+    match fs::remove_file(filepath) {
+        Ok(_) => {
+            info!(
+                "Service configuration '{:?}' deleted successfully.",
+                filepath
+            );
+            Ok(())
+        }
+        Err(e) => Err(e)?,
+    }
+}
+
 pub(super) fn write_to_file(filepath: &PathBuf, content: &str) -> Result<(), ServicingError> {
     // write content to a file in the provided file
     match fs::write(filepath, content) {

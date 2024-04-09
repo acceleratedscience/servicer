@@ -22,6 +22,8 @@ pub enum ServicingError {
     SerdeJsonError(#[from] serde_json::Error),
     #[error("Service {0} not found")]
     ServiceNotFound(String),
+    #[error("Service {0} already exists")]
+    ServiceAlreadyExists(String),
     #[error("Service {0} not up")]
     ServiceNotUp(String),
     #[error("{0}")]

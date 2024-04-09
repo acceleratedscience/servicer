@@ -69,6 +69,11 @@ impl Dispatcher {
         name: String,
         config: Option<UserProvidedConfig>,
     ) -> Result<(), ServicingError> {
+        // check if service already exists
+        if self.service.lock()?.contains_key(&name) {
+            return Err(ServicingError::ServiceAlreadyExists(name));
+        }
+
         let mut service = Service {
             data: None,
             template: Configuration::default(),
@@ -98,6 +103,29 @@ impl Dispatcher {
 
         self.service.lock()?.insert(name, service);
 
+        Ok(())
+    }
+
+    pub fn remove_service(&mut self, name: String) -> Result<(), ServicingError> {
+        // check if service is still up
+        let mut service = self.service.lock()?;
+        if let Some(service) = service.get(&name) {
+            if service.up {
+                return Err(ServicingError::ClusterProvisionError(format!(
+                    "Service {} is still up",
+                    name
+                )));
+            }
+            // remove the configuration file
+            if let Some(filepath) = &service.filepath {
+                helper::delete_file(filepath)?;
+            }
+        } else {
+            return Err(ServicingError::ServiceNotFound(name));
+        }
+
+        // remove from cache
+        service.remove(&name);
         Ok(())
     }
 
