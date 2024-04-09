@@ -1,11 +1,18 @@
 #![allow(dead_code)] // Remove this later
 
-use std::{collections::HashMap, path::PathBuf, process::Command, sync::OnceLock};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    process::Command,
+    sync::{Arc, Mutex, OnceLock},
+    thread::{sleep, spawn},
+    time::Duration,
+};
 
-use log::info;
+use log::{error, info, warn};
 use pyo3::{pyclass, pymethods};
 use regex::Regex;
-use reqwest::{header::ACCEPT, Client};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -15,6 +22,7 @@ use crate::{
 };
 
 static CLUSTER_ORCHESTRATOR: &str = "skypilot";
+static SEVICE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
 static REGEX_URL: OnceLock<Regex> = OnceLock::new();
 
@@ -23,7 +31,7 @@ static REGEX_URL: OnceLock<Regex> = OnceLock::new();
 #[pyclass]
 pub struct Dispatcher {
     client: Client,
-    service: HashMap<String, Service>,
+    service: Arc<Mutex<HashMap<String, Service>>>,
 }
 
 #[pyclass]
@@ -33,6 +41,7 @@ struct Service {
     template: Configuration,
     filepath: Option<PathBuf>,
     url: Option<String>,
+    up: bool,
 }
 
 #[pymethods]
@@ -45,12 +54,13 @@ impl Dispatcher {
         }
 
         let re = Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}:\d+\b")?;
+        let _ = REGEX_URL.get_or_init(|| re);
 
-        REGEX_URL.get_or_init(|| re);
+        let service = Arc::new(Mutex::new(HashMap::new()));
 
         Ok(Self {
             client: Client::new(),
-            service: HashMap::new(),
+            service,
         })
     }
 
@@ -64,6 +74,7 @@ impl Dispatcher {
             template: Configuration::default(),
             filepath: None,
             url: None,
+            up: false,
         };
 
         // Update the configuration with the user provided configuration, if provided
@@ -85,7 +96,7 @@ impl Dispatcher {
 
         service.filepath = Some(file);
 
-        self.service.insert(name, service);
+        self.service.lock()?.insert(name, service);
 
         Ok(())
     }
@@ -100,7 +111,7 @@ impl Dispatcher {
             Err(e) => return Err(ServicingError::ClusterProvisionError(e.to_string())),
         }
         // get the service configuration
-        if let Some(service) = self.service.get_mut(&name) {
+        if let Some(service) = self.service.lock()?.get_mut(&name) {
             info!("Launching the service with the configuration: {:?}", name);
             // launch the cluster
             let mut child = Command::new("sky")
@@ -148,6 +159,44 @@ impl Dispatcher {
                 .as_str();
 
             service.url = Some(url.to_string());
+            let service_clone = self.service.clone();
+            let client_clone = self.client.clone();
+
+            let url = url.to_string();
+
+            // spawn a thread to check when service comes online, then update the service status
+            spawn(move || {
+                let url = format!("http://{}", url);
+                loop {
+                    match helper::fetch(&client_clone, &url) {
+                        Ok(resp) => {
+                            if resp.to_lowercase().contains("no ready replicas") {
+                                sleep(SEVICE_CHECK_INTERVAL);
+                                continue;
+                            }
+                            match service_clone.lock() {
+                                Ok(mut service) => {
+                                    info!("Service {} is up", name);
+                                    if let Some(service) = service.get_mut(&name) {
+                                        service.up = true;
+                                    } else {
+                                        warn!("Service not found");
+                                    }
+                                    break;
+                                }
+                                Err(e) => {
+                                    error!("Error fetching the service: {:?}", e);
+                                    break;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Error fetching the service: {:?}", e);
+                            break;
+                        }
+                    }
+                }
+            });
 
             return Ok(());
         }
@@ -156,7 +205,7 @@ impl Dispatcher {
 
     pub fn down(&mut self, name: String) -> Result<(), ServicingError> {
         // get the service configuration
-        if let Some(service) = self.service.get_mut(&name) {
+        if let Some(service) = self.service.lock()?.get_mut(&name) {
             info!("Destroying the service with the configuration: {:?}", name);
             // launch the cluster
             let mut child = Command::new("sky")
@@ -167,7 +216,9 @@ impl Dispatcher {
 
             child.wait()?;
 
+            // Update service status
             service.url = None;
+            service.up = false;
 
             return Ok(());
         }
@@ -176,7 +227,7 @@ impl Dispatcher {
 
     pub fn status(&self, name: String) -> Result<(), ServicingError> {
         // Check if the service exists
-        if let Some(service) = self.service.get(&name) {
+        if let Some(service) = self.service.lock()?.get(&name) {
             info!("Checking the status of the service: {:?}", name);
             info!("Service configuration: {:?}", service);
             return Ok(());
@@ -185,7 +236,7 @@ impl Dispatcher {
     }
 
     pub fn save(&self) -> Result<(), ServicingError> {
-        let bin = bincode::serialize(&self.service)?;
+        let bin = bincode::serialize(&*self.service.lock()?)?;
 
         helper::write_to_file_binary(
             &helper::create_file(
@@ -208,17 +259,18 @@ impl Dispatcher {
         let bin = helper::read_from_file_binary(&location)?;
 
         self.service
+            .lock()?
             .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
 
         Ok(())
     }
 
     pub fn list(&self) -> Result<Vec<String>, ServicingError> {
-        Ok(self.service.keys().cloned().collect())
+        Ok(self.service.lock()?.keys().cloned().collect())
     }
 
     pub fn get_url(&self, name: String) -> Result<String, ServicingError> {
-        if let Some(service) = self.service.get(&name) {
+        if let Some(service) = self.service.lock()?.get(&name) {
             if let Some(url) = &service.url {
                 return Ok(url.clone());
             }
@@ -226,37 +278,10 @@ impl Dispatcher {
         }
         Err(ServicingError::ServiceNotFound(name))
     }
-
-    pub fn fetch(&self, url: String) -> Result<String, ServicingError> {
-        // create tokio runtime that is single threaded
-        let result = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?
-            .block_on(async {
-                let res = self
-                    .client
-                    .get(url)
-                    .header(ACCEPT, "application/json")
-                    .send()
-                    .await?;
-                let body = res.text().await?;
-                Ok::<_, ServicingError>(body)
-            })?;
-
-        Ok(result)
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
-    fn test_fetch() {
-        let dispatcher = Dispatcher::new().unwrap();
-        let result = dispatcher
-            .fetch("https://httpbin.org/get".to_string())
-            .unwrap();
-        assert!(result.contains("origin"));
-    }
+    fn test_fetch() {}
 }

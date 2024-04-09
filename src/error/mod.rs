@@ -1,4 +1,4 @@
-use std::sync::mpsc;
+use std::sync::{mpsc, PoisonError};
 
 use pyo3::{exceptions::PyRuntimeError, PyErr};
 use thiserror::Error;
@@ -26,10 +26,18 @@ pub enum ServicingError {
     SendError(#[from] mpsc::SendError<String>),
     #[error("{0}")]
     RegexError(#[from] regex::Error),
+    #[error("{0}")]
+    LockError(String),
 }
 
 impl From<ServicingError> for PyErr {
     fn from(err: ServicingError) -> PyErr {
         PyErr::new::<PyRuntimeError, _>(err.to_string())
+    }
+}
+
+impl<T> From<PoisonError<T>> for ServicingError {
+    fn from(err: PoisonError<T>) -> Self {
+        ServicingError::LockError(err.to_string())
     }
 }

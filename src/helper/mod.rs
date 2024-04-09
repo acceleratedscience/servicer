@@ -8,6 +8,7 @@ use std::{
 };
 
 use log::info;
+use reqwest::{header::ACCEPT, Client};
 
 use crate::error::ServicingError;
 
@@ -142,4 +143,22 @@ where
         Ok(())
     });
     (rx, handle)
+}
+
+pub fn fetch(client: &Client, url: &str) -> Result<String, ServicingError> {
+    // create tokio runtime that is single threaded
+    let result = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(async {
+            let res = client
+                .get(url)
+                .header(ACCEPT, "application/json")
+                .send()
+                .await?;
+            let body = res.text().await?;
+            Ok::<_, ServicingError>(body)
+        })?;
+
+    Ok(result)
 }
