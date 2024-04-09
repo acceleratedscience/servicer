@@ -102,16 +102,15 @@ impl Dispatcher {
     }
 
     pub fn up(&mut self, name: String) -> Result<(), ServicingError> {
-        let output = Command::new("sky").arg("--version").output();
-        match output {
-            Ok(output) => {
-                let version = String::from_utf8_lossy(&output.stdout);
-                info!("Sky version: {}", version);
-            }
-            Err(e) => return Err(ServicingError::ClusterProvisionError(e.to_string())),
-        }
         // get the service configuration
         if let Some(service) = self.service.lock()?.get_mut(&name) {
+            if service.up {
+                return Err(ServicingError::ClusterProvisionError(format!(
+                    "Service {} is already up",
+                    name
+                )));
+            }
+
             info!("Launching the service with the configuration: {:?}", name);
             // launch the cluster
             let mut child = Command::new("sky")
@@ -205,24 +204,27 @@ impl Dispatcher {
 
     pub fn down(&mut self, name: String) -> Result<(), ServicingError> {
         // get the service configuration
-        if let Some(service) = self.service.lock()?.get_mut(&name) {
-            info!("Destroying the service with the configuration: {:?}", name);
-            // launch the cluster
-            let mut child = Command::new("sky")
-                .arg("serve")
-                .arg("down")
-                .arg(&name)
-                .spawn()?;
+        match self.service.lock()?.get_mut(&name) {
+            Some(service) if service.up => {
+                info!("Destroying the service with the configuration: {:?}", name);
+                // launch the cluster
+                let mut child = Command::new("sky")
+                    .arg("serve")
+                    .arg("down")
+                    .arg(&name)
+                    .spawn()?;
 
-            child.wait()?;
+                child.wait()?;
 
-            // Update service status
-            service.url = None;
-            service.up = false;
+                // Update service status
+                service.url = None;
+                service.up = false;
 
-            return Ok(());
+                Ok(())
+            }
+            Some(_) => Err(ServicingError::ServiceNotUp(name)),
+            None => Err(ServicingError::ServiceNotFound(name)),
         }
-        Err(ServicingError::ServiceNotFound(name))
     }
 
     pub fn status(&self, name: String) -> Result<(), ServicingError> {

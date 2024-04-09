@@ -20,6 +20,8 @@ pub enum ServicingError {
     SerdeYamlError(#[from] serde_yaml::Error),
     #[error("Service {0} not found")]
     ServiceNotFound(String),
+    #[error("Service {0} not up")]
+    ServiceNotUp(String),
     #[error("{0}")]
     BinaryEncodeError(#[from] bincode::Error),
     #[error("{0}")]
