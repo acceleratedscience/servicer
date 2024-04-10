@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 
+use base64::Engine;
 use log::{error, info, warn};
 use pyo3::{pyclass, pymethods};
 use regex::Regex;
@@ -69,6 +70,11 @@ impl Dispatcher {
         name: String,
         config: Option<UserProvidedConfig>,
     ) -> Result<(), ServicingError> {
+        // check if service already exists
+        if self.service.lock()?.contains_key(&name) {
+            return Err(ServicingError::ServiceAlreadyExists(name));
+        }
+
         let mut service = Service {
             data: None,
             template: Configuration::default(),
@@ -98,6 +104,29 @@ impl Dispatcher {
 
         self.service.lock()?.insert(name, service);
 
+        Ok(())
+    }
+
+    pub fn remove_service(&mut self, name: String) -> Result<(), ServicingError> {
+        // check if service is still up
+        let mut service = self.service.lock()?;
+        if let Some(service) = service.get(&name) {
+            if service.up {
+                return Err(ServicingError::ClusterProvisionError(format!(
+                    "Service {} is still up",
+                    name
+                )));
+            }
+            // remove the configuration file
+            if let Some(filepath) = &service.filepath {
+                helper::delete_file(filepath)?;
+            }
+        } else {
+            return Err(ServicingError::ServiceNotFound(name));
+        }
+
+        // remove from cache
+        service.remove(&name);
         Ok(())
     }
 
@@ -175,12 +204,12 @@ impl Dispatcher {
                             }
                             match service_clone.lock() {
                                 Ok(mut service) => {
-                                    info!("Service {} is up", name);
                                     if let Some(service) = service.get_mut(&name) {
                                         service.up = true;
                                     } else {
                                         warn!("Service not found");
                                     }
+                                    info!("Service {} is up", name);
                                     break;
                                 }
                                 Err(e) => {
@@ -227,12 +256,15 @@ impl Dispatcher {
         }
     }
 
-    pub fn status(&self, name: String) -> Result<(), ServicingError> {
+    pub fn status(&self, name: String, pretty: Option<bool>) -> Result<String, ServicingError> {
         // Check if the service exists
         if let Some(service) = self.service.lock()?.get(&name) {
             info!("Checking the status of the service: {:?}", name);
-            info!("Service configuration: {:?}", service);
-            return Ok(());
+            return Ok(match pretty {
+                Some(true) => serde_json::to_string_pretty(service)?,
+                Some(false) => serde_json::to_string(service)?,
+                None => serde_json::to_string(service)?,
+            });
         }
         Err(ServicingError::ServiceNotFound(name))
     }
@@ -251,6 +283,12 @@ impl Dispatcher {
         Ok(())
     }
 
+    pub fn save_as_b64(&self) -> Result<String, ServicingError> {
+        let bin = bincode::serialize(&*self.service.lock()?)?;
+        let b64 = base64::prelude::BASE64_STANDARD.encode(bin);
+        Ok(b64)
+    }
+
     pub fn load(&mut self, location: Option<PathBuf>) -> Result<(), ServicingError> {
         let location = if let Some(location) = location {
             location
@@ -260,6 +298,15 @@ impl Dispatcher {
 
         let bin = helper::read_from_file_binary(&location)?;
 
+        self.service
+            .lock()?
+            .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
+
+        Ok(())
+    }
+
+    pub fn load_from_b64(&mut self, b64: String) -> Result<(), ServicingError> {
+        let bin = base64::prelude::BASE64_STANDARD.decode(b64.as_bytes())?;
         self.service
             .lock()?
             .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);

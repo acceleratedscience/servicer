@@ -18,8 +18,12 @@ pub enum ServicingError {
     ClusterProvisionError(String),
     #[error("{0}")]
     SerdeYamlError(#[from] serde_yaml::Error),
+    #[error("{0}")]
+    SerdeJsonError(#[from] serde_json::Error),
     #[error("Service {0} not found")]
     ServiceNotFound(String),
+    #[error("Service {0} already exists")]
+    ServiceAlreadyExists(String),
     #[error("Service {0} not up")]
     ServiceNotUp(String),
     #[error("{0}")]
@@ -30,6 +34,8 @@ pub enum ServicingError {
     RegexError(#[from] regex::Error),
     #[error("{0}")]
     LockError(String),
+    #[error("{0}")]
+    Base64Error(#[from] base64::DecodeError),
 }
 
 impl From<ServicingError> for PyErr {
