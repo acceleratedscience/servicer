@@ -34,6 +34,8 @@ pub enum ServicingError {
     RegexError(#[from] regex::Error),
     #[error("{0}")]
     LockError(String),
+    #[error("{0}")]
+    Base64Error(#[from] base64::DecodeError),
 }
 
 impl From<ServicingError> for PyErr {

@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 
+use base64::Engine;
 use log::{error, info, warn};
 use pyo3::{pyclass, pymethods};
 use regex::Regex;
@@ -282,6 +283,12 @@ impl Dispatcher {
         Ok(())
     }
 
+    pub fn save_as_b64(&self) -> Result<String, ServicingError> {
+        let bin = bincode::serialize(&*self.service.lock()?)?;
+        let b64 = base64::prelude::BASE64_STANDARD.encode(bin);
+        Ok(b64)
+    }
+
     pub fn load(&mut self, location: Option<PathBuf>) -> Result<(), ServicingError> {
         let location = if let Some(location) = location {
             location
@@ -291,6 +298,15 @@ impl Dispatcher {
 
         let bin = helper::read_from_file_binary(&location)?;
 
+        self.service
+            .lock()?
+            .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
+
+        Ok(())
+    }
+
+    pub fn load_from_b64(&mut self, b64: String) -> Result<(), ServicingError> {
+        let bin = base64::prelude::BASE64_STANDARD.decode(b64.as_bytes())?;
         self.service
             .lock()?
             .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
