@@ -23,14 +23,14 @@ jobs:
             target: x86_64
           - runner: ubuntu-latest
             target: x86
-          - runner: ubuntu-latest
-            target: aarch64
-          - runner: ubuntu-latest
-            target: armv7
-          - runner: ubuntu-latest
-            target: s390x
-          - runner: ubuntu-latest
-            target: ppc64le
+          # - runner: ubuntu-latest
+          #   target: aarch64
+          # - runner: ubuntu-latest
+          #   target: armv7
+          # - runner: ubuntu-latest
+          #   target: s390x
+          # - runner: ubuntu-latest
+          #   target: ppc64le
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -43,6 +43,20 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: 'true'
           manylinux: auto
+          before-script-linux: |
+            if [ -f /etc/lsb-release ]; then
+              apt update -y
+              apt upgrade -y
+              apt install openssl libssl-dev pkg-config -y
+            elif [ -f /etc/debian_version ]; then
+              apt update -y
+              apt upgrade -y
+              apt install openssl libssl-dev pkg-config -y
+            elif [ -f /etc/redhat-release ]; then
+              yum upgrade -y
+              yum install openssl openssl-devel pkgconfig -y
+            fi
+
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
