@@ -203,12 +203,12 @@ impl Dispatcher {
                             }
                             match service_clone.lock() {
                                 Ok(mut service) => {
-                                    info!("Service {} is up", name);
                                     if let Some(service) = service.get_mut(&name) {
                                         service.up = true;
                                     } else {
                                         warn!("Service not found");
                                     }
+                                    info!("Service {} is up", name);
                                     break;
                                 }
                                 Err(e) => {
@@ -233,7 +233,7 @@ impl Dispatcher {
     pub fn down(&mut self, name: String) -> Result<(), ServicingError> {
         // get the service configuration
         match self.service.lock()?.get_mut(&name) {
-            Some(service) if !service.up => {
+            Some(service) if service.up => {
                 info!("Destroying the service with the configuration: {:?}", name);
                 // launch the cluster
                 let mut child = Command::new("sky")
@@ -250,10 +250,6 @@ impl Dispatcher {
 
                 Ok(())
             }
-            Some(service) if service.up => Err(ServicingError::ClusterProvisionError(format!(
-                "Service {} is up and cannot be removed",
-                name
-            ))),
             Some(_) => Err(ServicingError::ServiceNotUp(name)),
             None => Err(ServicingError::ServiceNotFound(name)),
         }
