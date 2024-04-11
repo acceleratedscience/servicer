@@ -1,8 +1,7 @@
 use env_logger::Builder;
-use pyo3::prelude::*;
+use pyo3::{pymodule, types::PyModule, Bound, PyResult};
 
-use self::dispatcher::Dispatcher;
-use self::models::UserProvidedConfig;
+use crate::{dispatcher::Dispatcher, models::UserProvidedConfig};
 
 mod dispatcher;
 mod error;
