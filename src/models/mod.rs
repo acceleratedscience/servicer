@@ -1,4 +1,4 @@
-use pyo3::pyclass;
+use pyo3::{pyclass, pymethods};
 use serde::{Deserialize, Serialize};
 
 #[pyclass]
@@ -8,6 +8,19 @@ pub struct UserProvidedConfig {
     pub port: u16,
     pub replicas: u16,
     pub cloud: String,
+}
+
+#[pymethods]
+impl UserProvidedConfig {
+    #[new]
+    pub fn new(name: String, port: u16, replicas: u16, cloud: String) -> Self {
+        UserProvidedConfig {
+            name,
+            port,
+            replicas,
+            cloud,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
