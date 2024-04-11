@@ -1,7 +1,6 @@
-<img src="https://github.com/acceleratedscience/stressor/assets/14236737/3b48d7f4-4605-406d-95b3-062e9e694b2c" width="100"></br>
 ### SERVICING: a small binary aimed at service configuration and cluster deployment for OPENAD
 
-###### How to run this locally...
+###### How to run this locally from source
  1. Clone this repository:
 
  ```bash
@@ -15,15 +14,20 @@
  ```bash
  cargo install maturin
  ```
- 4. Build the project:
- ```bash
- maturin develop
- ```
- 5. Create Python virtual environment:
+ 4. Create Python virtual environment:
  ```bash
  virtualenv .venv
+ ```
+ 5. Build the project:
+ ```bash
+ maturin develop
  ```
  6. Activate the virtual environment:
  ```bash
  source .venv/bin/activate
+ ```
+ 7. Use Servicing
+ ```bash
+ python
+ import servicing
  ```
