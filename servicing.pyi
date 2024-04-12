@@ -5,13 +5,12 @@ class UserProvidedConfig:
     """
     UserProvidedConfig is a class that represents the service configuration
 
-    :param name: the name of the service
     :param port: the port on which the service should running
     :param replicas: the number of replicas of the service
     :param cloud: the cloud on which the service should running
     """
 
-    def __init__(self, name: str, port: int,
+    def __init__(self, port: int,
                  replicas: int, cloud: str) -> None: ...
 
 

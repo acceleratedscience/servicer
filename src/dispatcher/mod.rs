@@ -331,6 +331,41 @@ impl Dispatcher {
 
 #[cfg(test)]
 mod tests {
+    use crate::models::UserProvidedConfig;
+
     #[test]
-    fn test_fetch() {}
+    fn test_dispatcher() {
+        let mut dis = super::Dispatcher::new().unwrap();
+
+        dis.add_service(
+            "testing".to_string(),
+            Some(UserProvidedConfig {
+                port: 1234,
+                replicas: 5,
+                cloud: "aws".to_string(),
+            }),
+        )
+        .unwrap();
+
+        dis.save().unwrap();
+
+        // check what has been added
+        {
+            let services = dis.service.lock().unwrap();
+            let service = services.get("testing").unwrap();
+            assert_eq!(service.template.resources.ports, 1234);
+            assert_eq!(service.template.service.replicas, 5);
+            assert_eq!(service.template.resources.cloud, "aws");
+        }
+
+        dis.remove_service("testing".to_string()).unwrap();
+        assert!(dis.service.lock().unwrap().get("testing").is_none());
+
+        dis.load(None).unwrap();
+        {
+            let services = dis.service.lock().unwrap();
+            let service = services.get("testing").unwrap();
+            assert_eq!(service.template.resources.ports, 1234);
+        }
+    }
 }

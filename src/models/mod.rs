@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 #[pyclass]
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct UserProvidedConfig {
-    pub name: String,
     pub port: u16,
     pub replicas: u16,
     pub cloud: String,
@@ -13,9 +12,8 @@ pub struct UserProvidedConfig {
 #[pymethods]
 impl UserProvidedConfig {
     #[new]
-    pub fn new(name: String, port: u16, replicas: u16, cloud: String) -> Self {
+    pub fn new(port: u16, replicas: u16, cloud: String) -> Self {
         UserProvidedConfig {
-            name,
             port,
             replicas,
             cloud,
