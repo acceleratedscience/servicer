@@ -11,7 +11,13 @@ mod models;
 /// A Python module implemented in Rust.
 #[pymodule]
 fn servicing(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    Builder::new().filter_level(log::LevelFilter::Info).init();
+    // if release mode, set log level to info
+    if cfg!(not(debug_assertions)) {
+        Builder::new().filter_level(log::LevelFilter::Warn).init();
+    } else {
+        Builder::new().filter_level(log::LevelFilter::Info).init();
+    }
+
     m.add_class::<Dispatcher>()?;
     m.add_class::<UserProvidedConfig>()?;
     Ok(())
