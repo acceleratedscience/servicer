@@ -73,11 +73,11 @@ class Dispatcher:
         :return: the base64 string of the cache
         """
 
-    def load(self, name: str) -> None:
+    def load(self, location: Optional[str] = None) -> None:
         """
         Load the dispatcher's cache
 
-        :param name: the name of the service
+        :param location: the location of the cache
         :return: the status of the service in string format
         """
 
