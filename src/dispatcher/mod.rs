@@ -269,12 +269,23 @@ impl Dispatcher {
         Err(ServicingError::ServiceNotFound(name))
     }
 
-    pub fn save(&self) -> Result<(), ServicingError> {
+    pub fn save(&self, location: Option<PathBuf>) -> Result<(), ServicingError> {
         let bin = bincode::serialize(&*self.service.lock()?)?;
 
         helper::write_to_file_binary(
             &helper::create_file(
-                &helper::create_directory(".servicing", true)?,
+                &{
+                    if let Some(location) = location {
+                        helper::create_directory(
+                            location
+                                .to_str()
+                                .ok_or(ServicingError::General("Location is None".to_string()))?,
+                            false,
+                        )?
+                    } else {
+                        helper::create_directory(".servicing", true)?
+                    }
+                },
                 "services.bin",
             )?,
             &bin,

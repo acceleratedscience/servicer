@@ -61,9 +61,11 @@ class Dispatcher:
         :return: the status of the service in string format
         """
 
-    def save(self) -> None:
+    def save(self, location: Optional[str] = None) -> None:
         """
         Save the dispatcher's cache
+
+        :param location: the location of the cache, defaults to home directory
         """
 
     def save_as_b64(self) -> str:
@@ -77,8 +79,7 @@ class Dispatcher:
         """
         Load the dispatcher's cache
 
-        :param location: the location of the cache
-        :return: the status of the service in string format
+        :param location: the location of the cache, defaults to home directory
         """
 
     def load_as_b64(self, b64: str) -> None:
