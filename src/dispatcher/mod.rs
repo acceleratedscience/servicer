@@ -29,7 +29,7 @@ static REGEX_URL: OnceLock<Regex> = OnceLock::new();
 
 /// Dispatcher is a struct that is responsible for creating the service configuration and launching
 /// the cluster on a particular cloud provider.
-#[pyclass]
+#[pyclass(subclass)]
 pub struct Dispatcher {
     client: Client,
     service: Arc<Mutex<HashMap<String, Service>>>,
