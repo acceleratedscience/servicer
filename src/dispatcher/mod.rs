@@ -351,14 +351,17 @@ mod tests {
         dis.add_service(
             "testing".to_string(),
             Some(UserProvidedConfig {
-                port: 1234,
-                replicas: 5,
-                cloud: "aws".to_string(),
+                port: Some(1234),
+                replicas: Some(5),
+                cloud: Some("aws".to_string()),
+                workdir: None,
+                setup: None,
+                run: None,
             }),
         )
         .unwrap();
 
-        dis.save().unwrap();
+        dis.save(None).unwrap();
 
         // check what has been added
         {

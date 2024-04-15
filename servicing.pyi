@@ -10,8 +10,12 @@ class UserProvidedConfig:
     :param cloud: the cloud on which the service should running
     """
 
-    def __init__(self, port: int,
-                 replicas: int, cloud: str) -> None: ...
+    def __init__(self, port: Optional[int] = None,
+                 replicas: Optional[int] = None,
+                 cloud: Optional[str] = None,
+                 workdir: Optional[str] = None,
+                 setup: Optional[str] = None,
+                 run: Optional[str] = None) -> None: ...
 
 
 class Dispatcher:

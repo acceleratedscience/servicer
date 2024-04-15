@@ -4,19 +4,32 @@ use serde::{Deserialize, Serialize};
 #[pyclass]
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct UserProvidedConfig {
-    pub port: u16,
-    pub replicas: u16,
-    pub cloud: String,
+    pub port: Option<u16>,
+    pub replicas: Option<u16>,
+    pub cloud: Option<String>,
+    pub workdir: Option<String>,
+    pub setup: Option<String>,
+    pub run: Option<String>,
 }
 
 #[pymethods]
 impl UserProvidedConfig {
     #[new]
-    pub fn new(port: u16, replicas: u16, cloud: String) -> Self {
+    pub fn new(
+        port: Option<u16>,
+        replicas: Option<u16>,
+        cloud: Option<String>,
+        workdir: Option<String>,
+        setup: Option<String>,
+        run: Option<String>,
+    ) -> Self {
         UserProvidedConfig {
             port,
             replicas,
             cloud,
+            workdir,
+            setup,
+            run,
         }
     }
 }
@@ -32,9 +45,24 @@ pub struct Configuration {
 
 impl Configuration {
     pub fn update(&mut self, config: &UserProvidedConfig) {
-        self.service.replicas = config.replicas;
-        self.resources.ports = config.port;
-        self.resources.cloud = config.cloud.clone();
+        if let Some(port) = config.port {
+            self.resources.ports = port;
+        }
+        if let Some(replicas) = config.replicas {
+            self.service.replicas = replicas;
+        }
+        if let Some(cloud) = &config.cloud {
+            self.resources.cloud = cloud.clone();
+        }
+        if let Some(workdir) = &config.workdir {
+            self.workdir = workdir.clone();
+        }
+        if let Some(setup) = &config.setup {
+            self.setup = setup.clone();
+        }
+        if let Some(run) = &config.run {
+            self.run = run.clone();
+        }
     }
 
     #[allow(dead_code)]
