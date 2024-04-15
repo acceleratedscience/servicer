@@ -269,12 +269,23 @@ impl Dispatcher {
         Err(ServicingError::ServiceNotFound(name))
     }
 
-    pub fn save(&self) -> Result<(), ServicingError> {
+    pub fn save(&self, location: Option<PathBuf>) -> Result<(), ServicingError> {
         let bin = bincode::serialize(&*self.service.lock()?)?;
 
         helper::write_to_file_binary(
             &helper::create_file(
-                &helper::create_directory(".servicing", true)?,
+                &{
+                    if let Some(location) = location {
+                        helper::create_directory(
+                            location
+                                .to_str()
+                                .ok_or(ServicingError::General("Location is None".to_string()))?,
+                            false,
+                        )?
+                    } else {
+                        helper::create_directory(".servicing", true)?
+                    }
+                },
                 "services.bin",
             )?,
             &bin,
@@ -340,14 +351,17 @@ mod tests {
         dis.add_service(
             "testing".to_string(),
             Some(UserProvidedConfig {
-                port: 1234,
-                replicas: 5,
-                cloud: "aws".to_string(),
+                port: Some(1234),
+                replicas: Some(5),
+                cloud: Some("aws".to_string()),
+                workdir: None,
+                setup: None,
+                run: None,
             }),
         )
         .unwrap();
 
-        dis.save().unwrap();
+        dis.save(None).unwrap();
 
         // check what has been added
         {

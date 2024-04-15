@@ -10,8 +10,12 @@ class UserProvidedConfig:
     :param cloud: the cloud on which the service should running
     """
 
-    def __init__(self, port: int,
-                 replicas: int, cloud: str) -> None: ...
+    def __init__(self, port: Optional[int] = None,
+                 replicas: Optional[int] = None,
+                 cloud: Optional[str] = None,
+                 workdir: Optional[str] = None,
+                 setup: Optional[str] = None,
+                 run: Optional[str] = None) -> None: ...
 
 
 class Dispatcher:
@@ -61,9 +65,11 @@ class Dispatcher:
         :return: the status of the service in string format
         """
 
-    def save(self) -> None:
+    def save(self, location: Optional[str] = None) -> None:
         """
         Save the dispatcher's cache
+
+        :param location: the location of the cache, defaults to home directory
         """
 
     def save_as_b64(self) -> str:
@@ -77,8 +83,7 @@ class Dispatcher:
         """
         Load the dispatcher's cache
 
-        :param location: the location of the cache
-        :return: the status of the service in string format
+        :param location: the location of the cache, defaults to home directory
         """
 
     def load_as_b64(self, b64: str) -> None:
