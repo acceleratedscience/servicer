@@ -11,7 +11,7 @@ use std::{
 
 use base64::Engine;
 use log::{error, info, warn};
-use pyo3::{pyclass, pymethods};
+use pyo3::{pyclass, pymethods, Bound, PyAny};
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,8 @@ use crate::{
     models::{Configuration, UserProvidedConfig},
 };
 
+static CACHE_DIR: &str = ".servicing";
+static CACHE_FILE_NAME: &str = "services.bin";
 static CLUSTER_ORCHESTRATOR: &str = "skypilot";
 static SEVICE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -48,7 +50,8 @@ struct Service {
 #[pymethods]
 impl Dispatcher {
     #[new]
-    pub fn new() -> Result<Self, ServicingError> {
+    #[pyo3(signature = (*_args))]
+    pub fn new(_args: &Bound<'_, PyAny>) -> Result<Self, ServicingError> {
         // Check if the user has installed the required python package
         if !helper::check_python_package_installed(CLUSTER_ORCHESTRATOR) {
             return Err(ServicingError::PipPackageError(CLUSTER_ORCHESTRATOR));
@@ -91,7 +94,7 @@ impl Dispatcher {
         }
 
         // create a directory in the user home directory
-        let pwd = helper::create_directory(".servicing", true)?;
+        let pwd = helper::create_directory(CACHE_DIR, true)?;
 
         // create a file in the created directory
         let file = helper::create_file(&pwd, &(name.clone() + "_service.yaml"))?;
@@ -283,10 +286,10 @@ impl Dispatcher {
                             false,
                         )?
                     } else {
-                        helper::create_directory(".servicing", true)?
+                        helper::create_directory(CACHE_DIR, true)?
                     }
                 },
-                "services.bin",
+                CACHE_FILE_NAME,
             )?,
             &bin,
         )?;
@@ -302,9 +305,15 @@ impl Dispatcher {
 
     pub fn load(&mut self, location: Option<PathBuf>) -> Result<(), ServicingError> {
         let location = if let Some(location) = location {
-            location
+            helper::create_directory(
+                location
+                    .to_str()
+                    .ok_or(ServicingError::General("Location is None".to_string()))?,
+                false,
+            )?
+            .join(CACHE_FILE_NAME)
         } else {
-            helper::create_directory(".servicing", true)?.join("services.bin")
+            helper::create_directory(CACHE_DIR, true)?.join(CACHE_FILE_NAME)
         };
 
         let bin = helper::read_from_file_binary(&location)?;
@@ -342,44 +351,53 @@ impl Dispatcher {
 
 #[cfg(test)]
 mod tests {
+    use pyo3::{pyclass, Bound, Python};
+
     use crate::models::UserProvidedConfig;
+
+    #[pyclass]
+    struct Empty;
 
     #[test]
     fn test_dispatcher() {
-        let mut dis = super::Dispatcher::new().unwrap();
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let bound = Bound::new(py, Empty).unwrap();
+            let mut dis = super::Dispatcher::new(&bound).unwrap();
 
-        dis.add_service(
-            "testing".to_string(),
-            Some(UserProvidedConfig {
-                port: Some(1234),
-                replicas: Some(5),
-                cloud: Some("aws".to_string()),
-                workdir: None,
-                setup: None,
-                run: None,
-            }),
-        )
-        .unwrap();
+            dis.add_service(
+                "testing".to_string(),
+                Some(UserProvidedConfig {
+                    port: Some(1234),
+                    replicas: Some(5),
+                    cloud: Some("aws".to_string()),
+                    workdir: None,
+                    setup: None,
+                    run: None,
+                }),
+            )
+            .unwrap();
 
-        dis.save(None).unwrap();
+            dis.save(None).unwrap();
 
-        // check what has been added
-        {
-            let services = dis.service.lock().unwrap();
-            let service = services.get("testing").unwrap();
-            assert_eq!(service.template.resources.ports, 1234);
-            assert_eq!(service.template.service.replicas, 5);
-            assert_eq!(service.template.resources.cloud, "aws");
-        }
+            // check what has been added
+            {
+                let services = dis.service.lock().unwrap();
+                let service = services.get("testing").unwrap();
+                assert_eq!(service.template.resources.ports, 1234);
+                assert_eq!(service.template.service.replicas, 5);
+                assert_eq!(service.template.resources.cloud, "aws");
+            }
 
-        dis.remove_service("testing".to_string()).unwrap();
-        assert!(dis.service.lock().unwrap().get("testing").is_none());
+            dis.remove_service("testing".to_string()).unwrap();
+            assert!(dis.service.lock().unwrap().get("testing").is_none());
 
-        dis.load(None).unwrap();
-        {
-            let services = dis.service.lock().unwrap();
-            let service = services.get("testing").unwrap();
-            assert_eq!(service.template.resources.ports, 1234);
-        }
+            dis.load(None).unwrap();
+            {
+                let services = dis.service.lock().unwrap();
+                let service = services.get("testing").unwrap();
+                assert_eq!(service.template.resources.ports, 1234);
+            }
+        });
     }
 }
