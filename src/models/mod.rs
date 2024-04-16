@@ -8,6 +8,9 @@ pub struct UserProvidedConfig {
     pub replicas: Option<u16>,
     pub cloud: Option<String>,
     pub workdir: Option<String>,
+    pub disk_size: Option<u16>,
+    pub cpu: Option<String>,
+    pub memory: Option<String>,
     pub setup: Option<String>,
     pub run: Option<String>,
 }
@@ -20,6 +23,9 @@ impl UserProvidedConfig {
         replicas: Option<u16>,
         cloud: Option<String>,
         workdir: Option<String>,
+        disk_size: Option<u16>,
+        cpu: Option<String>,
+        memory: Option<String>,
         setup: Option<String>,
         run: Option<String>,
     ) -> Self {
@@ -28,6 +34,9 @@ impl UserProvidedConfig {
             replicas,
             cloud,
             workdir,
+            disk_size,
+            cpu,
+            memory,
             setup,
             run,
         }
@@ -56,6 +65,15 @@ impl Configuration {
         }
         if let Some(workdir) = &config.workdir {
             self.workdir = workdir.clone();
+        }
+        if let Some(disk_size) = config.disk_size {
+            self.resources.disk_size = disk_size;
+        }
+        if let Some(cpu) = &config.cpu {
+            self.resources.cpus = cpu.clone();
+        }
+        if let Some(memory) = &config.memory {
+            self.resources.memory = memory.clone();
         }
         if let Some(setup) = &config.setup {
             self.setup = setup.clone();
@@ -98,15 +116,13 @@ impl Default for Configuration {
                 cpus: "4+".to_string(),
                 memory: "10+".to_string(),
                 cloud: "aws".to_string(),
-                disk_size: 50,
+                disk_size: 100,
             },
             workdir: ".".to_string(),
             setup: "conda install cudatoolkit -y\n".to_string()
-                + "pip install gt4sd-trainer-hf-pl\n"
-                + "pip install .\n"
-                + "pip install fastapi\n"
-                + "pip install uvicorn\n",
-            run: "python service.py\n".to_string(),
+                + "pip install poetry\n"
+                + "poetry install\n",
+            run: "poetry run python service.py\n".to_string(),
         }
     }
 }
