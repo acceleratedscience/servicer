@@ -8,12 +8,21 @@ class UserProvidedConfig:
     :param port: the port on which the service should running
     :param replicas: the number of replicas of the service
     :param cloud: the cloud on which the service should running
+    :param workdir: the working directory of the service
+    :param disk_size: the disk size of the service
+    :param cpu: the CPU upper bound of the service
+    :param memory: the memory upper bound of the service
+    :param setup: the setup command of the service
+    :param run: the run command of the service
     """
 
     def __init__(self, port: Optional[int] = None,
                  replicas: Optional[int] = None,
                  cloud: Optional[str] = None,
                  workdir: Optional[str] = None,
+                 disk_size: Optional[int] = None,
+                 cpu: Optional[str] = None,
+                 memory: Optional[str] = None,
                  setup: Optional[str] = None,
                  run: Optional[str] = None) -> None: ...
 
