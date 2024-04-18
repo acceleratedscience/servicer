@@ -5,10 +5,13 @@ use std::{
     process::Command,
     sync::mpsc::Receiver,
     thread::{spawn, JoinHandle},
+    time::Duration,
 };
 
 use log::info;
+use pyo3::ffi::Py_None;
 use reqwest::{header::ACCEPT, Client};
+use tokio::{runtime::Runtime, time::sleep};
 
 use crate::error::ServicingError;
 
@@ -159,20 +162,38 @@ where
     (rx, handle)
 }
 
-pub fn fetch(client: &Client, url: &str) -> Result<String, ServicingError> {
-    // create tokio runtime that is single threaded
-    let result = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?
-        .block_on(async {
-            let res = client
-                .get(url)
-                .header(ACCEPT, "application/json")
-                .send()
-                .await?;
-            let body = res.text().await?;
-            Ok::<_, ServicingError>(body)
-        })?;
+pub async fn fetch(client: &Client, url: &str) -> Result<String, ServicingError> {
+    let res = client
+        .get(url)
+        .header(ACCEPT, "application/json")
+        .send()
+        .await?;
+    let body = res.text().await?;
+    Ok(body)
+}
 
-    Ok(result)
+pub async fn fetch_and_check(
+    client: &Client,
+    url: &str,
+    expected: &str,
+    delay: Option<Duration>,
+) -> Result<(), ServicingError> {
+    loop {
+        let res = client
+            .get(url)
+            .header(ACCEPT, "application/json")
+            .send()
+            .await?;
+        let body = res.text().await?;
+
+        if body.to_lowercase().contains(expected) {
+            break;
+        }
+
+        if let Some(delay) = delay {
+            sleep(delay).await;
+        }
+    }
+
+    Ok(())
 }

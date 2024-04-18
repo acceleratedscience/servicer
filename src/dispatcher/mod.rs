@@ -5,7 +5,6 @@ use std::{
     path::PathBuf,
     process::Command,
     sync::{Arc, Mutex, OnceLock},
-    thread::{sleep, spawn},
     time::Duration,
 };
 
@@ -15,6 +14,11 @@ use pyo3::{pyclass, pymethods, Bound, PyAny};
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use tokio::{
+    runtime::{self, Runtime},
+    spawn,
+    time::sleep,
+};
 
 use crate::{
     error::ServicingError,
@@ -34,6 +38,7 @@ static REGEX_URL: OnceLock<Regex> = OnceLock::new();
 #[pyclass(subclass)]
 pub struct Dispatcher {
     client: Client,
+    rt: Runtime,
     service: Arc<Mutex<HashMap<String, Service>>>,
 }
 
@@ -62,8 +67,14 @@ impl Dispatcher {
 
         let service = Arc::new(Mutex::new(HashMap::new()));
 
+        // single threaded tokio runtime
+        let rt = runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+
         Ok(Self {
             client: Client::new(),
+            rt,
             service,
         })
     }
@@ -195,14 +206,14 @@ impl Dispatcher {
 
             let url = url.to_string();
 
-            // spawn a thread to check when service comes online, then update the service status
-            spawn(move || {
+            // spawn a green thread to check when service comes online, then update the service status
+            let fut = spawn(async move {
                 let url = format!("http://{}", url);
                 loop {
-                    match helper::fetch(&client_clone, &url) {
+                    match helper::fetch(&client_clone, &url).await {
                         Ok(resp) => {
                             if resp.to_lowercase().contains("no ready replicas") {
-                                sleep(SEVICE_CHECK_INTERVAL);
+                                sleep(SEVICE_CHECK_INTERVAL).await;
                                 continue;
                             }
                             match service_clone.lock() {
@@ -228,6 +239,7 @@ impl Dispatcher {
                     }
                 }
             });
+            self.rt.spawn(fut);
 
             return Ok(());
         }
@@ -303,7 +315,11 @@ impl Dispatcher {
         Ok(b64)
     }
 
-    pub fn load(&mut self, location: Option<PathBuf>) -> Result<(), ServicingError> {
+    pub fn load(
+        &mut self,
+        location: Option<PathBuf>,
+        update_status: Option<bool>,
+    ) -> Result<(), ServicingError> {
         let location = if let Some(location) = location {
             helper::create_directory(
                 location
@@ -321,6 +337,29 @@ impl Dispatcher {
         self.service
             .lock()?
             .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
+
+        if let Some(true) = update_status {
+            let _service_clone = self.service.clone();
+            let mut service_to_check = Vec::new();
+            // iterate through the services and check if they are up
+            self.service
+                .lock()?
+                .iter()
+                .filter(|(_, service)| !service.up && service.url.is_some())
+                .for_each(|(name, service)| {
+                    service_to_check.push((
+                        name.clone(),
+                        service
+                            .url
+                            .clone()
+                            .expect("Gettting url, this should never be None"),
+                    ))
+                });
+
+            self.rt.spawn(async {
+                todo!();
+            });
+        }
 
         Ok(())
     }
@@ -374,9 +413,15 @@ mod tests {
                     workdir: None,
                     setup: None,
                     run: None,
+                    disk_size: None,
+                    cpu: None,
+                    memory: None,
                 }),
             )
             .unwrap();
+
+            // test the runtime... should NOT panic
+            dis.rt.block_on(async { "" });
 
             dis.save(None).unwrap();
 
@@ -392,7 +437,7 @@ mod tests {
             dis.remove_service("testing".to_string()).unwrap();
             assert!(dis.service.lock().unwrap().get("testing").is_none());
 
-            dis.load(None).unwrap();
+            dis.load(None, None).unwrap();
             {
                 let services = dis.service.lock().unwrap();
                 let service = services.get("testing").unwrap();
