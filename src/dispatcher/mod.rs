@@ -17,7 +17,6 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::{
     runtime::{self, Runtime},
-    spawn,
     time::sleep,
 };
 
@@ -69,8 +68,10 @@ impl Dispatcher {
 
         let service = Arc::new(Mutex::new(HashMap::new()));
 
-        // single threaded tokio runtime
-        let rt = runtime::Builder::new_current_thread()
+        // tokio runtime with one dedicated worker
+        let rt = runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .thread_name("servicing")
             .enable_all()
             .build()?;
 
@@ -93,7 +94,7 @@ impl Dispatcher {
 
         let mut service = Service {
             data: None,
-            template: Configuration::default(),
+            template: Configuration::test_config(),
             filepath: None,
             url: None,
             up: false,
@@ -209,7 +210,7 @@ impl Dispatcher {
             let url = url.to_string();
 
             // spawn a green thread to check when service comes online, then update the service status
-            let fut = spawn(async move {
+            let fut = async move {
                 let url = format!("http://{}", url);
                 loop {
                     match helper::fetch(&client_clone, &url).await {
@@ -240,7 +241,7 @@ impl Dispatcher {
                         }
                     }
                 }
-            });
+            };
             self.rt.spawn(fut);
 
             return Ok(());
@@ -341,9 +342,13 @@ impl Dispatcher {
             .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
 
         if let Some(true) = update_status {
+            info!("Checking for services that may come up while you were away...");
+
+            // Clones to pass to threads
             let service_clone = self.service.clone();
             let client_clone = self.client.clone();
             let mut service_to_check = Vec::new();
+
             // iterate through the services and find that are down
             self.service
                 .lock()?
@@ -358,6 +363,7 @@ impl Dispatcher {
                             .expect("Gettting url, this should never be None"),
                     ))
                 });
+            info!("Services to check: {:?}", service_to_check);
 
             self.rt.spawn(async move {
                 let mut handles = Vec::new();
@@ -383,21 +389,26 @@ impl Dispatcher {
                     handles.push(handle);
                 }
                 for res in join_all(handles).await {
-                    match res {
-                        Ok(r) => match r {
-                            Ok(name) => {
-                                if let Ok(mut service) = service_clone.lock() {
-                                    if let Some(service) = service.get_mut(&name) {
-                                        service.up = true;
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                error!("Error polling a service: {:?}", e);
-                            }
-                        },
+                    let mut service = match service_clone.lock() {
+                        Ok(s) => s,
                         Err(e) => {
-                            error!("Error polling a service: {:?}", e);
+                            error!("Poisoned lock {e}");
+                            return;
+                        }
+                    };
+
+                    match res {
+                        Ok(Ok(r)) => {
+                            if let Some(service) = service.get_mut(&r) {
+                                service.up = true;
+                                info!("Service {} is up", r);
+                            }
+                        }
+                        Ok(Err(e)) => {
+                            error!("{e}");
+                        }
+                        Err(e) => {
+                            error!("{e}");
                         }
                     }
                 }

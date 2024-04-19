@@ -186,7 +186,7 @@ pub async fn fetch_and_check(
             .await?;
         let body = res.text().await?;
 
-        if body.to_lowercase().contains(expected) {
+        if !body.to_lowercase().contains(expected) {
             break;
         }
 
