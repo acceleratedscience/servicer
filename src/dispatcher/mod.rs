@@ -9,6 +9,7 @@ use std::{
 };
 
 use base64::Engine;
+use futures::future::join_all;
 use log::{error, info, warn};
 use pyo3::{pyclass, pymethods, Bound, PyAny};
 use regex::Regex;
@@ -29,7 +30,8 @@ use crate::{
 static CACHE_DIR: &str = ".servicing";
 static CACHE_FILE_NAME: &str = "services.bin";
 static CLUSTER_ORCHESTRATOR: &str = "skypilot";
-static SEVICE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
+static SERVICE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
+static REPLICA_UP_CHECK: &str = "no ready replicas";
 
 static REGEX_URL: OnceLock<Regex> = OnceLock::new();
 
@@ -212,8 +214,8 @@ impl Dispatcher {
                 loop {
                     match helper::fetch(&client_clone, &url).await {
                         Ok(resp) => {
-                            if resp.to_lowercase().contains("no ready replicas") {
-                                sleep(SEVICE_CHECK_INTERVAL).await;
+                            if resp.to_lowercase().contains(REPLICA_UP_CHECK) {
+                                sleep(SERVICE_CHECK_INTERVAL).await;
                                 continue;
                             }
                             match service_clone.lock() {
@@ -339,9 +341,10 @@ impl Dispatcher {
             .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
 
         if let Some(true) = update_status {
-            let _service_clone = self.service.clone();
+            let service_clone = self.service.clone();
+            let client_clone = self.client.clone();
             let mut service_to_check = Vec::new();
-            // iterate through the services and check if they are up
+            // iterate through the services and find that are down
             self.service
                 .lock()?
                 .iter()
@@ -356,8 +359,48 @@ impl Dispatcher {
                     ))
                 });
 
-            self.rt.spawn(async {
-                todo!();
+            self.rt.spawn(async move {
+                let mut handles = Vec::new();
+                for (name, url) in service_to_check {
+                    let client_clone = client_clone.clone();
+                    let url = format!("http://{}", url);
+                    let handle = tokio::spawn(async move {
+                        match helper::fetch_and_check(
+                            &client_clone,
+                            &url,
+                            REPLICA_UP_CHECK,
+                            Some(SERVICE_CHECK_INTERVAL),
+                        )
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
+                        Ok(name)
+                    });
+                    handles.push(handle);
+                }
+                for res in join_all(handles).await {
+                    match res {
+                        Ok(r) => match r {
+                            Ok(name) => {
+                                if let Ok(mut service) = service_clone.lock() {
+                                    if let Some(service) = service.get_mut(&name) {
+                                        service.up = true;
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                error!("Error polling a service: {:?}", e);
+                            }
+                        },
+                        Err(e) => {
+                            error!("Error polling a service: {:?}", e);
+                        }
+                    }
+                }
             });
         }
 

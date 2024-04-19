@@ -1,3 +1,4 @@
+//! Helper module houses all the helper functions used by the service module.
 use std::{
     fs,
     io::{self, Read},
@@ -9,9 +10,8 @@ use std::{
 };
 
 use log::info;
-use pyo3::ffi::Py_None;
 use reqwest::{header::ACCEPT, Client};
-use tokio::{runtime::Runtime, time::sleep};
+use tokio::time::sleep;
 
 use crate::error::ServicingError;
 
