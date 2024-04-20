@@ -76,7 +76,7 @@ impl Dispatcher {
             .build()?;
 
         Ok(Self {
-            client: Client::new(),
+            client: Client::builder().pool_max_idle_per_host(0).build()?,
             rt,
             service,
         })
@@ -249,29 +249,33 @@ impl Dispatcher {
         Err(ServicingError::ServiceNotFound(name))
     }
 
-    pub fn down(&mut self, name: String) -> Result<(), ServicingError> {
+    pub fn down(&mut self, name: String, force: Option<bool>) -> Result<(), ServicingError> {
         // get the service configuration
         match self.service.lock()?.get_mut(&name) {
             Some(service) if service.up => {
-                info!("Destroying the service with the configuration: {:?}", name);
-                // launch the cluster
-                let mut child = Command::new("sky")
-                    .arg("serve")
-                    .arg("down")
-                    .arg(&name)
-                    .spawn()?;
-
-                child.wait()?;
-
                 // Update service status
                 service.url = None;
                 service.up = false;
-
-                Ok(())
             }
-            Some(_) => Err(ServicingError::ServiceNotUp(name)),
-            None => Err(ServicingError::ServiceNotFound(name)),
+            Some(_) => match force {
+                Some(true) => {}
+                Some(false) | None => {
+                    return Err(ServicingError::ServiceNotUp(name));
+                }
+            },
+            None => return Err(ServicingError::ServiceNotFound(name)),
         }
+        info!("Destroying the service with the configuration: {:?}", name);
+        // launch the cluster
+        let mut child = Command::new("sky")
+            .arg("serve")
+            .arg("down")
+            .arg(&name)
+            .spawn()?;
+
+        child.wait()?;
+
+        Ok(())
     }
 
     pub fn status(&self, name: String, pretty: Option<bool>) -> Result<String, ServicingError> {
@@ -363,6 +367,12 @@ impl Dispatcher {
                             .expect("Gettting url, this should never be None"),
                     ))
                 });
+
+            if service_to_check.is_empty() {
+                info!("No services to check");
+                return Ok(());
+            }
+
             info!("Services to check: {:?}", service_to_check);
 
             self.rt.spawn(async move {
