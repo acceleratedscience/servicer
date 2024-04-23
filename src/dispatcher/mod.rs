@@ -207,7 +207,7 @@ impl Dispatcher {
             let service_clone = self.service.clone();
             let client_clone = self.client.clone();
 
-            let url = url.to_string();
+            let url = url.to_string() + &service.template.service.readiness_probe;
 
             // spawn a green thread to check when service comes online, then update the service status
             let fut = async move {
@@ -278,14 +278,36 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub fn status(&self, name: String, pretty: Option<bool>) -> Result<String, ServicingError> {
+    pub fn status(&mut self, name: String, pretty: Option<bool>) -> Result<String, ServicingError> {
         // Check if the service exists
         if let Some(service) = self.service.lock()?.get(&name) {
             info!("Checking the status of the service: {:?}", name);
+
+            // if service is up poll once to see if it's still up
+            if let (true, Some(url)) = (service.up, &service.url) {
+                let url = format!(
+                    "http://{}{}",
+                    url, &service.template.service.readiness_probe
+                );
+                let r = self.rt.block_on(async {
+                    let res = helper::fetch(&self.client, &url).await;
+                    match res {
+                        Ok(resp) => {
+                            if resp.to_lowercase().contains(REPLICA_UP_CHECK) {
+                                Err(ServicingError::ServiceNotUp(name))
+                            } else {
+                                // it's up
+                                Ok(())
+                            }
+                        }
+                        Err(e) => Err::<(), _>(ServicingError::General(e.to_string())),
+                    }
+                });
+            }
+
             return Ok(match pretty {
                 Some(true) => serde_json::to_string_pretty(service)?,
-                Some(false) => serde_json::to_string(service)?,
-                None => serde_json::to_string(service)?,
+                _ => serde_json::to_string(service)?,
             });
         }
         Err(ServicingError::ServiceNotFound(name))
@@ -364,7 +386,8 @@ impl Dispatcher {
                         service
                             .url
                             .clone()
-                            .expect("Gettting url, this should never be None"),
+                            .expect("Gettting url, this should never be None")
+                            + &service.template.service.readiness_probe,
                     ))
                 });
 

@@ -162,7 +162,7 @@ where
     (rx, handle)
 }
 
-pub async fn fetch(client: &Client, url: &str) -> Result<String, ServicingError> {
+pub async fn fetch(client: &Client, url: &str) -> Result<String, reqwest::Error> {
     let res = client
         .get(url)
         .header(ACCEPT, "application/json")
