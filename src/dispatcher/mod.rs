@@ -280,7 +280,7 @@ impl Dispatcher {
 
     pub fn status(&mut self, name: String, pretty: Option<bool>) -> Result<String, ServicingError> {
         // Check if the service exists
-        if let Some(service) = self.service.lock()?.get(&name) {
+        if let Some(service) = self.service.lock()?.get_mut(&name) {
             info!("Checking the status of the service: {:?}", name);
 
             // if service is up poll once to see if it's still up
@@ -289,12 +289,13 @@ impl Dispatcher {
                     "http://{}{}",
                     url, &service.template.service.readiness_probe
                 );
+
                 let r = self.rt.block_on(async {
                     let res = helper::fetch(&self.client, &url).await;
                     match res {
                         Ok(resp) => {
                             if resp.to_lowercase().contains(REPLICA_UP_CHECK) {
-                                Err(ServicingError::ServiceNotUp(name))
+                                Err(ServicingError::ServiceNotUp(name.clone()))
                             } else {
                                 // it's up
                                 Ok(())
@@ -303,6 +304,17 @@ impl Dispatcher {
                         Err(e) => Err::<(), _>(ServicingError::General(e.to_string())),
                     }
                 });
+
+                match r {
+                    Ok(_) => {
+                        //No-op
+                        info!("Service {} is up", name);
+                    }
+                    Err(e) => {
+                        error!("{:?}", e);
+                        service.up = false;
+                    }
+                }
             }
 
             return Ok(match pretty {
