@@ -18,6 +18,7 @@ pub struct UserProvidedConfig {
 #[pymethods]
 impl UserProvidedConfig {
     #[new]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         port: Option<u16>,
         replicas: Option<u16>,

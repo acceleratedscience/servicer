@@ -16,7 +16,8 @@ class UserProvidedConfig:
     :param run: the run command of the service
     """
 
-    def __init__(self, port: Optional[int] = None,
+    def __init__(self,
+                 port: Optional[int] = None,
                  replicas: Optional[int] = None,
                  cloud: Optional[str] = None,
                  workdir: Optional[str] = None,
@@ -58,11 +59,12 @@ class Dispatcher:
         :param name: the name of the service to start
         """
 
-    def down(self, name: str) -> None:
+    def down(self, name: str, force: Optional[bool] = None) -> None:
         """
         Stop a service
 
         :param name: the name of the service to stop
+        :param force: whether to force stop the service
         """
 
     def status(self, name: str, pretty: Optional[bool] = None) -> str:
