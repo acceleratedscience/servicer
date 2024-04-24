@@ -76,7 +76,10 @@ impl Dispatcher {
             .build()?;
 
         Ok(Self {
-            client: Client::builder().pool_max_idle_per_host(0).build()?,
+            client: Client::builder()
+                .pool_max_idle_per_host(0)
+                .timeout(Duration::from_secs(10))
+                .build()?,
             rt,
             service,
         })
@@ -94,7 +97,7 @@ impl Dispatcher {
 
         let mut service = Service {
             data: None,
-            template: Configuration::test_config(),
+            template: Configuration::default(),
             filepath: None,
             url: None,
             up: false,
@@ -311,7 +314,7 @@ impl Dispatcher {
                         info!("Service {} is up", name);
                     }
                     Err(e) => {
-                        error!("{:?}", e);
+                        info!("{:?}", e);
                         service.up = false;
                     }
                 }
