@@ -314,7 +314,7 @@ impl Dispatcher {
                         info!("Service {} is up", name);
                     }
                     Err(e) => {
-                        info!("{:?}", e);
+                        warn!("{:?}", e);
                         service.up = false;
                     }
                 }
@@ -453,7 +453,7 @@ impl Dispatcher {
                             }
                         }
                         Ok(Err(e)) => {
-                            error!("{e}");
+                            warn!("{e}");
                         }
                         Err(e) => {
                             error!("{e}");
