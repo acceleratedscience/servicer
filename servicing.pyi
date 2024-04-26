@@ -90,7 +90,7 @@ class Dispatcher:
         :return: the base64 string of the cache
         """
 
-    def load(self, location: Optional[str] = None) -> None:
+    def load(self, location: Optional[str] = None, update_status: Optional[bool] = False) -> None:
         """
         Load the dispatcher's cache
 
