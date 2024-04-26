@@ -274,7 +274,6 @@ impl Dispatcher {
             .arg("serve")
             .arg("down")
             .arg(&name)
-            .arg("-y")
             .spawn()?;
 
         child.wait()?;
