@@ -11,6 +11,7 @@ pub struct UserProvidedConfig {
     pub disk_size: Option<u16>,
     pub cpu: Option<String>,
     pub memory: Option<String>,
+    pub accelerators: Option<String>,
     pub setup: Option<String>,
     pub run: Option<String>,
 }
@@ -27,6 +28,7 @@ impl UserProvidedConfig {
         disk_size: Option<u16>,
         cpu: Option<String>,
         memory: Option<String>,
+        accelerators: Option<String>,
         setup: Option<String>,
         run: Option<String>,
     ) -> Self {
@@ -38,6 +40,7 @@ impl UserProvidedConfig {
             disk_size,
             cpu,
             memory,
+            accelerators,
             setup,
             run,
         }
@@ -76,6 +79,9 @@ impl Configuration {
         if let Some(memory) = &config.memory {
             self.resources.memory = memory.clone();
         }
+        if let Some(accelerators) = &config.accelerators {
+            self.resources.accelerators = accelerators.clone();
+        }
         if let Some(setup) = &config.setup {
             self.setup = setup.clone();
         }
@@ -102,6 +108,7 @@ pub struct Resources {
     pub cloud: String,
     pub cpus: String,
     pub memory: String,
+    pub accelerators: String,
     pub disk_size: u16,
 }
 
