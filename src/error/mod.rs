@@ -1,7 +1,12 @@
-use std::sync::{mpsc, PoisonError};
+use std::{
+    result,
+    sync::{mpsc, PoisonError},
+};
 
 use pyo3::{exceptions::PyRuntimeError, PyErr};
 use thiserror::Error;
+
+pub type Result<T> = result::Result<T, ServicingError>;
 
 #[allow(dead_code)] // Remove this later
 #[derive(Debug, Error)]

@@ -20,11 +20,7 @@ use tokio::{
     time::sleep,
 };
 
-use crate::{
-    error::ServicingError,
-    helper,
-    models::{Configuration, UserProvidedConfig},
-};
+use crate::{error::ServicingError, helper, models::{sky::Configuration, UserProvidedConfig}};
 
 static CACHE_DIR: &str = ".servicing";
 static CACHE_FILE_NAME: &str = "services.bin";
