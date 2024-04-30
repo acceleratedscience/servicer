@@ -80,7 +80,7 @@ impl Configuration {
             self.resources.memory = memory.clone();
         }
         if let Some(accelerators) = &config.accelerators {
-            self.resources.accelerators = accelerators.clone();
+            self.resources.accelerators = Some(accelerators.clone());
         }
         if let Some(setup) = &config.setup {
             self.setup = setup.clone();
@@ -108,7 +108,7 @@ pub struct Resources {
     pub cloud: String,
     pub cpus: String,
     pub memory: String,
-    pub accelerators: String,
+    pub accelerators: Option<String>,
     pub disk_size: u16,
 }
 
@@ -123,6 +123,7 @@ impl Default for Configuration {
                 ports: 8080,
                 cpus: "4+".to_string(),
                 memory: "10+".to_string(),
+                accelerators: None,
                 cloud: "aws".to_string(),
                 disk_size: 100,
             },
@@ -146,6 +147,7 @@ pub fn test_config() -> Configuration {
             ports: 8080,
             cpus: "4+".to_string(),
             memory: "10+".to_string(),
+            accelerators: None,
             cloud: "aws".to_string(),
             disk_size: 50,
         },
