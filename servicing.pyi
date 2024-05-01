@@ -12,6 +12,7 @@ class UserProvidedConfig:
     :param disk_size: the disk size of the service
     :param cpu: the CPU upper bound of the service
     :param memory: the memory upper bound of the service
+    :param accelerators: the GPU upper bound of the service
     :param setup: the setup command of the service
     :param run: the run command of the service
     """
@@ -24,6 +25,7 @@ class UserProvidedConfig:
                  disk_size: Optional[int] = None,
                  cpu: Optional[str] = None,
                  memory: Optional[str] = None,
+                 accelerators: Optional[str] = None,
                  setup: Optional[str] = None,
                  run: Optional[str] = None) -> None: ...
 

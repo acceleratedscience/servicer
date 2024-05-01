@@ -517,6 +517,7 @@ mod tests {
                     run: None,
                     disk_size: None,
                     cpu: None,
+                    accelerators: None,
                     memory: None,
                 }),
             )

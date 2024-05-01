@@ -11,6 +11,7 @@ pub struct UserProvidedConfig {
     pub disk_size: Option<u16>,
     pub cpu: Option<String>,
     pub memory: Option<String>,
+    pub accelerators: Option<String>,
     pub setup: Option<String>,
     pub run: Option<String>,
 }
@@ -27,6 +28,7 @@ impl UserProvidedConfig {
         disk_size: Option<u16>,
         cpu: Option<String>,
         memory: Option<String>,
+        accelerators: Option<String>,
         setup: Option<String>,
         run: Option<String>,
     ) -> Self {
@@ -38,6 +40,7 @@ impl UserProvidedConfig {
             disk_size,
             cpu,
             memory,
+            accelerators,
             setup,
             run,
         }
@@ -76,6 +79,9 @@ impl Configuration {
         if let Some(memory) = &config.memory {
             self.resources.memory = memory.clone();
         }
+        if let Some(accelerators) = &config.accelerators {
+            self.resources.accelerators = Some(accelerators.clone());
+        }
         if let Some(setup) = &config.setup {
             self.setup = setup.clone();
         }
@@ -103,6 +109,8 @@ pub struct Resources {
     pub cpus: String,
     pub memory: String,
     pub disk_size: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accelerators: Option<String>,
 }
 
 impl Default for Configuration {
@@ -116,6 +124,7 @@ impl Default for Configuration {
                 ports: 8080,
                 cpus: "4+".to_string(),
                 memory: "10+".to_string(),
+                accelerators: None,
                 cloud: "aws".to_string(),
                 disk_size: 100,
             },
@@ -139,6 +148,7 @@ pub fn test_config() -> Configuration {
             ports: 8080,
             cpus: "4+".to_string(),
             memory: "10+".to_string(),
+            accelerators: None,
             cloud: "aws".to_string(),
             disk_size: 50,
         },
