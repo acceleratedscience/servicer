@@ -108,8 +108,9 @@ pub struct Resources {
     pub cloud: String,
     pub cpus: String,
     pub memory: String,
-    pub accelerators: Option<String>,
     pub disk_size: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accelerators: Option<String>,
 }
 
 impl Default for Configuration {
