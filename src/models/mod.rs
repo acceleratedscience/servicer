@@ -117,14 +117,15 @@ impl Serialize for Resources {
     where
         S: serde::ser::Serializer,
     {
-        let human = serializer.is_human_readable();
+        let should_serialize = self.accelerators.is_some() || !serializer.is_human_readable();
+
         let mut stats = serializer.serialize_struct("Resources", 6)?;
         stats.serialize_field("ports", &self.ports)?;
         stats.serialize_field("cloud", &self.cloud)?;
         stats.serialize_field("cpus", &self.cpus)?;
         stats.serialize_field("memory", &self.memory)?;
         stats.serialize_field("disk_size", &self.disk_size)?;
-        if self.accelerators.is_some() || !human {
+        if should_serialize {
             stats.serialize_field("accelerators", &self.accelerators)?;
         }
         stats.end()
