@@ -264,12 +264,12 @@ impl Dispatcher {
     pub fn down(
         &mut self,
         name: String,
-        force: Option<bool>,
         skip_prompt: Option<bool>,
+        force: Option<bool>,
     ) -> Result<(), ServicingError> {
         // get the service configuration
         match self.service.lock()?.get_mut(&name) {
-            Some(service) if service.up => {
+            Some(service) if service.up || service.url.is_some() => {
                 // Update service status
                 service.url = None;
                 service.up = false;
@@ -284,12 +284,12 @@ impl Dispatcher {
         }
         info!("Destroying the service with the configuration: {:?}", name);
         // launch the cluster
-        let mut cmt = Command::new("sky");
-        cmt.arg("serve").arg("down").arg(&name);
+        let mut cmd = Command::new("sky");
+        cmd.arg("serve").arg("down").arg(&name);
         if let Some(true) = skip_prompt {
-            cmt.arg("-y");
+            cmd.arg("-y");
         }
-        let mut child = cmt.spawn()?;
+        let mut child = cmd.spawn()?;
 
         child.wait()?;
 

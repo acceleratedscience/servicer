@@ -54,14 +54,14 @@ class Dispatcher:
         :param name: the name of the service
         """
 
-    def up(self, name: str, force: Optional[bool] = None) -> None:
+    def up(self, name: str, skip_prompt: Optional[bool] = None) -> None:
         """
         Start a service
 
         :param name: the name of the service to start
         """
 
-    def down(self, name: str, force: Optional[bool] = None) -> None:
+    def down(self, name: str, skip_prompt: Optional[bool] = None, force: Optional[bool] = None) -> None:
         """
         Stop a service
 
