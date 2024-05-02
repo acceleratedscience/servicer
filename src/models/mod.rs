@@ -1,5 +1,5 @@
 use pyo3::{pyclass, pymethods};
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
 #[pyclass]
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -102,15 +102,34 @@ pub struct Service {
     pub replicas: u16,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Resources {
     pub ports: u16,
     pub cloud: String,
     pub cpus: String,
     pub memory: String,
     pub disk_size: u16,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub accelerators: Option<String>,
+}
+
+impl Serialize for Resources {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        let should_serialize = self.accelerators.is_some() || !serializer.is_human_readable();
+
+        let mut stats = serializer.serialize_struct("Resources", 6)?;
+        stats.serialize_field("ports", &self.ports)?;
+        stats.serialize_field("cloud", &self.cloud)?;
+        stats.serialize_field("cpus", &self.cpus)?;
+        stats.serialize_field("memory", &self.memory)?;
+        stats.serialize_field("disk_size", &self.disk_size)?;
+        if should_serialize {
+            stats.serialize_field("accelerators", &self.accelerators)?;
+        }
+        stats.end()
+    }
 }
 
 impl Default for Configuration {
