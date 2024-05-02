@@ -54,7 +54,7 @@ class Dispatcher:
         :param name: the name of the service
         """
 
-    def up(self, name: str) -> None:
+    def up(self, name: str, force: Optional[bool] = None) -> None:
         """
         Start a service
 
@@ -92,7 +92,7 @@ class Dispatcher:
         :return: the base64 string of the cache
         """
 
-    def load(self, location: Optional[str] = None) -> None:
+    def load(self, location: Optional[str] = None, update_status: Optional[str] = None) -> None:
         """
         Load the dispatcher's cache
 
