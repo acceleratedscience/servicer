@@ -137,6 +137,13 @@ impl Dispatcher {
                     name
                 )));
             }
+            // check if service is not yet up but started
+            if let Some(_) = service.url {
+                return Err(ServicingError::ClusterProvisionError(format!(
+                    "Service {} is starting",
+                    name
+                )));
+            }
             // remove the configuration file
             if let Some(filepath) = &service.filepath {
                 helper::delete_file(filepath)?;
@@ -150,7 +157,8 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub fn up(&mut self, name: String) -> Result<(), ServicingError> {
+    pub fn up(&mut self, name: String, force: Option<bool>) -> Result<(), ServicingError> {
+        let mut accept_prompt = Some("");
         // get the service configuration
         if let Some(service) = self.service.lock()?.get_mut(&name) {
             if service.up {
@@ -158,6 +166,20 @@ impl Dispatcher {
                     "Service {} is already up",
                     name
                 )));
+            }
+            // check if service is not yet up but started
+            if let Some(_) = service.url {
+                return Err(ServicingError::ClusterProvisionError(format!(
+                    "Service {} is starting",
+                    name
+                )));
+            }
+            match force {
+                Some(true) => {
+                    accept_prompt = Some("-y")
+                },
+                Some(false) => {},
+                None => {}
             }
 
             info!("Launching the service with the configuration: {:?}", name);
@@ -168,6 +190,7 @@ impl Dispatcher {
                 .arg("up")
                 .arg("-n")
                 .arg(&name)
+                .arg(&accept_prompt.unwrap())
                 .arg(
                     service
                         .filepath
@@ -254,14 +277,20 @@ impl Dispatcher {
 
     pub fn down(&mut self, name: String, force: Option<bool>) -> Result<(), ServicingError> {
         // get the service configuration
+        let mut accept_prompt = Some("");
+
         match self.service.lock()?.get_mut(&name) {
             Some(service) if service.up => {
                 // Update service status
                 service.url = None;
                 service.up = false;
             }
-            Some(_) => match force {
-                Some(true) => {}
+            Some(service) => match force {
+                Some(true) => {
+                    accept_prompt = Some("-y");
+                    service.url = None;
+                    service.up = false;
+                }
                 Some(false) | None => {
                     return Err(ServicingError::ServiceNotUp(name));
                 }
@@ -274,6 +303,7 @@ impl Dispatcher {
             .arg("serve")
             .arg("down")
             .arg(&name)
+            .arg(&accept_prompt.unwrap())
             .spawn()?;
 
         child.wait()?;
