@@ -378,9 +378,7 @@ impl Dispatcher {
 
         let bin = helper::read_from_file_binary(&location)?;
 
-        self.service
-            .lock()?
-            .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
+        *self.service.lock()? = bincode::deserialize::<HashMap<String, Service>>(&bin)?;
 
         if let Some(true) = update_status {
             info!("Checking for services that may come up while you were away...");
@@ -468,9 +466,7 @@ impl Dispatcher {
 
     pub fn load_from_b64(&mut self, b64: String) -> Result<(), ServicingError> {
         let bin = base64::prelude::BASE64_STANDARD.decode(b64.as_bytes())?;
-        self.service
-            .lock()?
-            .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
+        *self.service.lock()? = bincode::deserialize::<HashMap<String, Service>>(&bin)?;
 
         Ok(())
     }
