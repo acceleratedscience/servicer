@@ -262,7 +262,7 @@ impl Dispatcher {
                             }
                         }
                         Err(e) => {
-                            error!("Error fetching the service: {:?}", e);
+                            error!("Error fetching the service endpoint: {:?}", e);
                             break;
                         }
                     }
