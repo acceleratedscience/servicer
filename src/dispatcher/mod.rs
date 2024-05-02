@@ -157,47 +157,33 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub fn up(&mut self, name: String, force: Option<bool>) -> Result<(), ServicingError> {
-        let mut accept_prompt = Some("");
+    pub fn up(&mut self, name: String, skip_prompt: Option<bool>) -> Result<(), ServicingError> {
         // get the service configuration
         if let Some(service) = self.service.lock()?.get_mut(&name) {
-            if service.up {
-                return Err(ServicingError::ClusterProvisionError(format!(
-                    "Service {} is already up",
-                    name
-                )));
-            }
-            // check if service is not yet up but started
+            // check if service is either up or starting
             if let Some(_) = service.url {
                 return Err(ServicingError::ClusterProvisionError(format!(
-                    "Service {} is starting",
+                    "Service {} is starting or already up",
                     name
                 )));
-            }
-            match force {
-                Some(true) => {
-                    accept_prompt = Some("-y")
-                },
-                Some(false) => {},
-                None => {}
             }
 
             info!("Launching the service with the configuration: {:?}", name);
             // launch the cluster
-            let mut child = Command::new("sky")
-                // .stdout(Stdio::piped())
-                .arg("serve")
-                .arg("up")
-                .arg("-n")
-                .arg(&name)
-                .arg(&accept_prompt.unwrap())
-                .arg(
-                    service
-                        .filepath
-                        .as_ref()
-                        .ok_or(ServicingError::General("filepath not found".to_string()))?,
-                )
-                .spawn()?;
+            let mut cmd = Command::new("sky");
+
+            cmd.arg("serve").arg("up").arg("-n").arg(&name).arg(
+                service
+                    .filepath
+                    .as_ref()
+                    .ok_or(ServicingError::General("filepath not found".to_string()))?,
+            );
+
+            if let Some(true) = skip_prompt {
+                cmd.arg("-y");
+            }
+
+            let mut child = cmd.spawn()?;
 
             // ley skypilot handle the CLI interaction
 
@@ -275,22 +261,21 @@ impl Dispatcher {
         Err(ServicingError::ServiceNotFound(name))
     }
 
-    pub fn down(&mut self, name: String, force: Option<bool>) -> Result<(), ServicingError> {
+    pub fn down(
+        &mut self,
+        name: String,
+        force: Option<bool>,
+        skip_prompt: Option<bool>,
+    ) -> Result<(), ServicingError> {
         // get the service configuration
-        let mut accept_prompt = Some("");
-
         match self.service.lock()?.get_mut(&name) {
             Some(service) if service.up => {
                 // Update service status
                 service.url = None;
                 service.up = false;
             }
-            Some(service) => match force {
-                Some(true) => {
-                    accept_prompt = Some("-y");
-                    service.url = None;
-                    service.up = false;
-                }
+            Some(_) => match force {
+                Some(true) => {}
                 Some(false) | None => {
                     return Err(ServicingError::ServiceNotUp(name));
                 }
@@ -299,12 +284,12 @@ impl Dispatcher {
         }
         info!("Destroying the service with the configuration: {:?}", name);
         // launch the cluster
-        let mut child = Command::new("sky")
-            .arg("serve")
-            .arg("down")
-            .arg(&name)
-            .arg(&accept_prompt.unwrap())
-            .spawn()?;
+        let mut cmt = Command::new("sky");
+        cmt.arg("serve").arg("down").arg(&name);
+        if let Some(true) = skip_prompt {
+            cmt.arg("-y");
+        }
+        let mut child = cmt.spawn()?;
 
         child.wait()?;
 
