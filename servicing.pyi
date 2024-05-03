@@ -12,6 +12,7 @@ class UserProvidedConfig:
     :param disk_size: the disk size of the service
     :param cpu: the CPU upper bound of the service
     :param memory: the memory upper bound of the service
+    :param accelerators: the GPU upper bound of the service
     :param setup: the setup command of the service
     :param run: the run command of the service
     """
@@ -24,6 +25,7 @@ class UserProvidedConfig:
                  disk_size: Optional[int] = None,
                  cpu: Optional[str] = None,
                  memory: Optional[str] = None,
+                 accelerators: Optional[str] = None,
                  setup: Optional[str] = None,
                  run: Optional[str] = None) -> None: ...
 
@@ -52,14 +54,14 @@ class Dispatcher:
         :param name: the name of the service
         """
 
-    def up(self, name: str) -> None:
+    def up(self, name: str, skip_prompt: Optional[bool] = None) -> None:
         """
         Start a service
 
         :param name: the name of the service to start
         """
 
-    def down(self, name: str, force: Optional[bool] = None) -> None:
+    def down(self, name: str, skip_prompt: Optional[bool] = None, force: Optional[bool] = None) -> None:
         """
         Stop a service
 
@@ -90,7 +92,7 @@ class Dispatcher:
         :return: the base64 string of the cache
         """
 
-    def load(self, location: Optional[str] = None) -> None:
+    def load(self, location: Optional[str] = None, update_status: Optional[str] = None) -> None:
         """
         Load the dispatcher's cache
 

@@ -133,6 +133,13 @@ impl Dispatcher {
                     name
                 )));
             }
+            // check if service is not yet up but started
+            if let Some(_) = service.url {
+                return Err(ServicingError::ClusterProvisionError(format!(
+                    "Service {} is starting",
+                    name
+                )));
+            }
             // remove the configuration file
             if let Some(filepath) = &service.filepath {
                 helper::delete_file(filepath)?;
@@ -146,31 +153,33 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub fn up(&mut self, name: String) -> Result<(), ServicingError> {
+    pub fn up(&mut self, name: String, skip_prompt: Option<bool>) -> Result<(), ServicingError> {
         // get the service configuration
         if let Some(service) = self.service.lock()?.get_mut(&name) {
-            if service.up {
+            // check if service is either up or starting
+            if let Some(_) = service.url {
                 return Err(ServicingError::ClusterProvisionError(format!(
-                    "Service {} is already up",
+                    "Service {} is starting or already up",
                     name
                 )));
             }
 
             info!("Launching the service with the configuration: {:?}", name);
             // launch the cluster
-            let mut child = Command::new("sky")
-                // .stdout(Stdio::piped())
-                .arg("serve")
-                .arg("up")
-                .arg("-n")
-                .arg(&name)
-                .arg(
-                    service
-                        .filepath
-                        .as_ref()
-                        .ok_or(ServicingError::General("filepath not found".to_string()))?,
-                )
-                .spawn()?;
+            let mut cmd = Command::new("sky");
+
+            cmd.arg("serve").arg("up").arg("-n").arg(&name).arg(
+                service
+                    .filepath
+                    .as_ref()
+                    .ok_or(ServicingError::General("filepath not found".to_string()))?,
+            );
+
+            if let Some(true) = skip_prompt {
+                cmd.arg("-y");
+            }
+
+            let mut child = cmd.spawn()?;
 
             // ley skypilot handle the CLI interaction
 
@@ -235,7 +244,7 @@ impl Dispatcher {
                             }
                         }
                         Err(e) => {
-                            error!("Error fetching the service: {:?}", e);
+                            error!("Error fetching the service endpoint: {:?}", e);
                             break;
                         }
                     }
@@ -248,10 +257,15 @@ impl Dispatcher {
         Err(ServicingError::ServiceNotFound(name))
     }
 
-    pub fn down(&mut self, name: String, force: Option<bool>) -> Result<(), ServicingError> {
+    pub fn down(
+        &mut self,
+        name: String,
+        skip_prompt: Option<bool>,
+        force: Option<bool>,
+    ) -> Result<(), ServicingError> {
         // get the service configuration
         match self.service.lock()?.get_mut(&name) {
-            Some(service) if service.up => {
+            Some(service) if service.up || service.url.is_some() => {
                 // Update service status
                 service.url = None;
                 service.up = false;
@@ -266,11 +280,12 @@ impl Dispatcher {
         }
         info!("Destroying the service with the configuration: {:?}", name);
         // launch the cluster
-        let mut child = Command::new("sky")
-            .arg("serve")
-            .arg("down")
-            .arg(&name)
-            .spawn()?;
+        let mut cmd = Command::new("sky");
+        cmd.arg("serve").arg("down").arg(&name);
+        if let Some(true) = skip_prompt {
+            cmd.arg("-y");
+        }
+        let mut child = cmd.spawn()?;
 
         child.wait()?;
 
@@ -513,6 +528,7 @@ mod tests {
                     run: None,
                     disk_size: None,
                     cpu: None,
+                    accelerators: None,
                     memory: None,
                 }),
             )
