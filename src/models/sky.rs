@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::OnceLock, time::Duration};
 
 use pyo3::{pyclass, pymethods};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
 use crate::{
     error::{Result, ServicingError},
@@ -119,6 +119,9 @@ impl Configuration {
         if let Some(run) = &config.run {
             self.run = run.clone();
         }
+        if let Some(accelerators) = &config.accelerators {
+            self.resources.accelerators = Some(accelerators.clone());
+        }
     }
 
     #[allow(dead_code)]
@@ -133,13 +136,33 @@ pub struct Service {
     pub replicas: u16,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Resources {
     pub ports: u16,
     pub cloud: String,
     pub cpus: String,
     pub memory: String,
     pub disk_size: u16,
+    pub accelerators: Option<String>,
+}
+
+impl Serialize for Resources {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let should_serialize = self.accelerators.is_some() || !serializer.is_human_readable();
+
+        let mut stats = serializer.serialize_struct("Resources", 6)?;
+        stats.serialize_field("cloud", &self.cloud)?;
+        stats.serialize_field("cpus", &self.cpus)?;
+        stats.serialize_field("memory", &self.memory)?;
+        stats.serialize_field("disk_size", &self.disk_size)?;
+        if should_serialize {
+            stats.serialize_field("accelerators", &self.accelerators)?;
+        }
+        stats.end()
+    }
 }
 
 impl Default for Configuration {
@@ -155,6 +178,7 @@ impl Default for Configuration {
                 memory: "10+".to_string(),
                 cloud: "aws".to_string(),
                 disk_size: 100,
+                accelerators: None,
             },
             workdir: ".".to_string(),
             setup: "conda install cudatoolkit -y\n".to_string()
@@ -178,6 +202,7 @@ pub fn test_config() -> Configuration {
             memory: "10+".to_string(),
             cloud: "aws".to_string(),
             disk_size: 50,
+            accelerators: None,
         },
         setup: "".to_string(),
         workdir: ".".to_string(),
