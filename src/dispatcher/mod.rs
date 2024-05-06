@@ -528,7 +528,7 @@ mod tests {
                     replicas: Some(5),
                     cloud: Some("aws".to_string()),
                     workdir: None,
-                    remote: None,
+                    data: None,
                     setup: None,
                     run: None,
                     disk_size: None,
