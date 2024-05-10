@@ -56,8 +56,8 @@ struct Service {
 #[pymethods]
 impl Dispatcher {
     #[new]
-    #[pyo3(signature = (*_args))]
-    pub fn new(_args: &Bound<'_, PyAny>) -> Result<Self, ServicingError> {
+    #[pyo3(signature = (*_args, **_kwargs))]
+    pub fn new(_args: &Bound<'_, PyAny>, _kwargs: Option<&Bound<'_, PyAny>>) -> Result<Self, ServicingError> {
         // Check if the user has installed the required python package
         if !helper::check_python_package_installed(CLUSTER_ORCHESTRATOR) {
             return Err(ServicingError::PipPackageError(CLUSTER_ORCHESTRATOR));
@@ -507,7 +507,7 @@ impl Dispatcher {
 
 #[cfg(test)]
 mod tests {
-    use pyo3::{pyclass, Bound, Python};
+    use pyo3::{pyclass, types::PyDict, Bound, PyAny, Python};
 
     use crate::models::UserProvidedConfig;
 
@@ -518,8 +518,10 @@ mod tests {
     fn test_dispatcher() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
-            let bound = Bound::new(py, Empty).unwrap();
-            let mut dis = super::Dispatcher::new(&bound).unwrap();
+            let bound_args = Bound::new(py, Empty).unwrap();
+            let bound_kwargs = Some(PyDict::new_bound(py));
+            // let bound_kwargs = Some(PyDict::new_bound(py));
+            let mut dis = super::Dispatcher::new(&bound_args, bound_kwargs.as_deref()).unwrap();
 
             dis.add_service(
                 "testing".to_string(),
