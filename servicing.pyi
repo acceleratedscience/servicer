@@ -38,7 +38,8 @@ class Dispatcher:
     responsible for housing all the Servicing functionality
     """
 
-    def __init__(self) -> None: ...
+    def __init__(self, 
+                 skip_sky_validation: Optional[bool] = False) -> None: ...
 
     def add_service(self, name: str,
                     config: Optional[UserProvidedConfig] = None) -> None:
