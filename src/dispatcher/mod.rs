@@ -389,6 +389,7 @@ impl Dispatcher {
 
     pub fn load(
         &mut self,
+        extend: bool,
         location: Option<PathBuf>,
         update_status: Option<bool>,
     ) -> Result<(), ServicingError> {
@@ -406,9 +407,17 @@ impl Dispatcher {
 
         let bin = helper::read_from_file_binary(&location)?;
 
-        self.service
+        if extend {
+            info!("extending services in memory");
+            self.service
             .lock()?
             .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
+        } else {
+            info!("replacing services in memory");
+            let new_data = bincode::deserialize::<HashMap<String, Service>>(&bin)?;
+            let mut service_lock = self.service.lock()?;
+            *service_lock = new_data;
+        }
 
         if let Some(true) = update_status {
             info!("Checking for services that may come up while you were away...");
