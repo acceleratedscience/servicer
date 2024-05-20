@@ -1,7 +1,7 @@
 use pyo3::{pyclass, pymethods};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
-#[pyclass]
+#[pyclass(subclass)]
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct UserProvidedConfig {
     pub port: Option<u16>,

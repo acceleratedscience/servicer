@@ -11,7 +11,8 @@ use std::{
 use base64::Engine;
 use futures::future::join_all;
 use log::{error, info, warn};
-use pyo3::{pyclass, pymethods, Bound, PyAny};
+use pyo3::prelude::*;
+use pyo3::{pyclass, pymethods, types::PyDict, Bound, PyAny};
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -57,9 +58,18 @@ struct Service {
 impl Dispatcher {
     #[new]
     #[pyo3(signature = (*_args, **_kwargs))]
-    pub fn new(_args: &Bound<'_, PyAny>, _kwargs: Option<&Bound<'_, PyAny>>) -> Result<Self, ServicingError> {
+    pub fn new(
+        _args: &Bound<'_, PyAny>,
+        _kwargs: Option<&Bound<'_, PyAny>>,
+    ) -> Result<Self, ServicingError> {
+        // Check if sky_check is True in _kwargs
+        let skip_sky_validation =  _kwargs
+            .and_then(|kwargs| kwargs.downcast::<PyDict>().ok())
+            .and_then(|dict| dict.get_item("skip_sky_validation").unwrap_or(None))
+            .map(|sky_check| sky_check.is_truthy().unwrap_or(false)).unwrap_or(false);
+
         // Check if the user has installed the required python package
-        if !helper::check_python_package_installed(CLUSTER_ORCHESTRATOR) {
+        if !skip_sky_validation && !helper::check_python_package_installed(CLUSTER_ORCHESTRATOR) {
             return Err(ServicingError::PipPackageError(CLUSTER_ORCHESTRATOR));
         }
 
