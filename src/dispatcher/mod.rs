@@ -134,7 +134,7 @@ impl Dispatcher {
                 )));
             }
             // check if service is not yet up but started
-            if let Some(_) = service.url {
+            if service.url.is_some() {
                 return Err(ServicingError::ClusterProvisionError(format!(
                     "Service {} is starting",
                     name
@@ -157,7 +157,7 @@ impl Dispatcher {
         // get the service configuration
         if let Some(service) = self.service.lock()?.get_mut(&name) {
             // check if service is either up or starting
-            if let Some(_) = service.url {
+            if service.url.is_some() {
                 return Err(ServicingError::ClusterProvisionError(format!(
                     "Service {} is starting or already up",
                     name

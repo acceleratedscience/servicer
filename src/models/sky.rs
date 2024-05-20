@@ -99,25 +99,25 @@ impl Configuration {
             self.service.replicas = replicas;
         }
         if let Some(cloud) = &config.cloud {
-            self.resources.cloud = cloud.clone();
+            self.resources.cloud.clone_from(cloud);
         }
         if let Some(workdir) = &config.workdir {
-            self.workdir = workdir.clone();
+            self.workdir.clone_from(workdir);
         }
         if let Some(disk_size) = config.disk_size {
             self.resources.disk_size = disk_size;
         }
         if let Some(cpu) = &config.cpu {
-            self.resources.cpus = cpu.clone();
+            self.resources.cpus.clone_from(cpu);
         }
         if let Some(memory) = &config.memory {
-            self.resources.memory = memory.clone();
+            self.resources.memory.clone_from(memory);
         }
         if let Some(setup) = &config.setup {
-            self.setup = setup.clone();
+            self.setup.clone_from(setup);
         }
         if let Some(run) = &config.run {
-            self.run = run.clone();
+            self.run.clone_from(run);
         }
         if let Some(accelerators) = &config.accelerators {
             self.resources.accelerators = Some(accelerators.clone());
