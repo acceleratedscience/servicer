@@ -58,19 +58,16 @@ struct Service {
 impl Dispatcher {
     #[new]
     #[pyo3(signature = (*_args, **_kwargs))]
-    pub fn new(_args: &Bound<'_, PyAny>, _kwargs: Option<&Bound<'_, PyAny>>) -> Result<Self, ServicingError> {
+    pub fn new(
+        _args: &Bound<'_, PyAny>,
+        _kwargs: Option<&Bound<'_, PyAny>>,
+    ) -> Result<Self, ServicingError> {
         // Check if sky_check is True in _kwargs
-        let mut skip_sky_validation = false;
-        if let Some(kwargs) = _kwargs {
-            if let Ok(dict) = kwargs.downcast::<PyDict>() {
-                if let Ok(Some(sky_check)) = dict.get_item("skip_sky_validation") {
-                    if sky_check.is_truthy().unwrap_or(false) {
-                        skip_sky_validation = true;
-                        info!("Skipping check for python package: {}", CLUSTER_ORCHESTRATOR);
-                    }
-                }
-            }
-        }
+        let skip_sky_validation =  _kwargs
+            .and_then(|kwargs| kwargs.downcast::<PyDict>().ok())
+            .and_then(|dict| dict.get_item("skip_sky_validation").unwrap_or(None))
+            .map(|sky_check| sky_check.is_truthy().unwrap_or(false)).unwrap_or(false);
+
         // Check if the user has installed the required python package
         if !skip_sky_validation && !helper::check_python_package_installed(CLUSTER_ORCHESTRATOR) {
             return Err(ServicingError::PipPackageError(CLUSTER_ORCHESTRATOR));
@@ -407,8 +404,8 @@ impl Dispatcher {
         let bin = helper::read_from_file_binary(&location)?;
 
         self.service
-        .lock()?
-        .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
+            .lock()?
+            .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
 
         if let Some(true) = update_status {
             info!("Checking for services that may come up while you were away...");
