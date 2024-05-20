@@ -11,7 +11,8 @@ use std::{
 use base64::Engine;
 use futures::future::join_all;
 use log::{error, info, warn};
-use pyo3::{pyclass, pymethods, Bound, PyAny};
+use pyo3::prelude::*;
+use pyo3::{pyclass, pymethods, types::PyDict, Bound, PyAny};
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -58,8 +59,20 @@ impl Dispatcher {
     #[new]
     #[pyo3(signature = (*_args, **_kwargs))]
     pub fn new(_args: &Bound<'_, PyAny>, _kwargs: Option<&Bound<'_, PyAny>>) -> Result<Self, ServicingError> {
+        // Check if sky_check is True in _kwargs
+        let mut skip_sky_validation = false;
+        if let Some(kwargs) = _kwargs {
+            if let Ok(dict) = kwargs.downcast::<PyDict>() {
+                if let Ok(Some(sky_check)) = dict.get_item("skip_sky_validation") {
+                    if sky_check.is_truthy().unwrap_or(false) {
+                        skip_sky_validation = true;
+                        info!("Skipping check for python package: {}", CLUSTER_ORCHESTRATOR);
+                    }
+                }
+            }
+        }
         // Check if the user has installed the required python package
-        if !helper::check_python_package_installed(CLUSTER_ORCHESTRATOR) {
+        if !skip_sky_validation && !helper::check_python_package_installed(CLUSTER_ORCHESTRATOR) {
             return Err(ServicingError::PipPackageError(CLUSTER_ORCHESTRATOR));
         }
 
@@ -376,7 +389,6 @@ impl Dispatcher {
 
     pub fn load(
         &mut self,
-        extend: bool,
         location: Option<PathBuf>,
         update_status: Option<bool>,
     ) -> Result<(), ServicingError> {
@@ -394,17 +406,9 @@ impl Dispatcher {
 
         let bin = helper::read_from_file_binary(&location)?;
 
-        if extend {
-            info!("extending services in memory");
-            self.service
-            .lock()?
-            .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
-        } else {
-            info!("replacing services in memory");
-            let new_data = bincode::deserialize::<HashMap<String, Service>>(&bin)?;
-            let mut service_lock = self.service.lock()?;
-            *service_lock = new_data;
-        }
+        self.service
+        .lock()?
+        .extend(bincode::deserialize::<HashMap<String, Service>>(&bin)?);
 
         if let Some(true) = update_status {
             info!("Checking for services that may come up while you were away...");

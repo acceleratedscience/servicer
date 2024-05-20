@@ -38,7 +38,8 @@ class Dispatcher:
     responsible for housing all the Servicing functionality
     """
 
-    def __init__(self) -> None: ...
+    def __init__(self, 
+                 skip_sky_validation: Optional[bool] = False) -> None: ...
 
     def add_service(self, name: str,
                     config: Optional[UserProvidedConfig] = None) -> None:
@@ -94,7 +95,7 @@ class Dispatcher:
         :return: the base64 string of the cache
         """
 
-    def load(self, extend: bool, location: Optional[str] = None, update_status: Optional[str] = None) -> None:
+    def load(self, location: Optional[str] = None, update_status: Optional[str] = None) -> None:
         """
         Load the dispatcher's cache
 
