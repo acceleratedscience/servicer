@@ -13,11 +13,11 @@ use log::info;
 use reqwest::{header::ACCEPT, Client};
 use tokio::time::sleep;
 
-use crate::error::ServicingError;
+use crate::errors::ServicingError;
 
 /// check_python_package_installed checks if the user has installed the required python package.
 /// True is returned if the package is installed, otherwise false.
-pub(super) fn check_python_package_installed(package: &str) -> bool {
+pub fn check_python_package_installed(package: &str) -> bool {
     info!("Checking for python package: {}", package);
     let output = Command::new("pip").arg("show").arg(package).output();
     match output {
@@ -26,7 +26,7 @@ pub(super) fn check_python_package_installed(package: &str) -> bool {
     }
 }
 
-pub(super) fn create_directory(dirname: &str, home: bool) -> Result<PathBuf, ServicingError> {
+pub fn create_directory(dirname: &str, home: bool) -> Result<PathBuf, ServicingError> {
     let dir_name = if home {
         match dirs::home_dir() {
             Some(path) => {
@@ -58,7 +58,7 @@ pub(super) fn create_directory(dirname: &str, home: bool) -> Result<PathBuf, Ser
     }
 }
 
-pub(super) fn create_file(dirname: &PathBuf, filename: &str) -> Result<PathBuf, ServicingError> {
+pub fn create_file(dirname: &PathBuf, filename: &str) -> Result<PathBuf, ServicingError> {
     // create a file in the provided directory
     let path = Path::new(dirname).join(filename);
     match fs::File::create(&path) {
@@ -70,7 +70,7 @@ pub(super) fn create_file(dirname: &PathBuf, filename: &str) -> Result<PathBuf, 
     }
 }
 
-pub(super) fn delete_file(filepath: &PathBuf) -> Result<(), ServicingError> {
+pub fn delete_file(filepath: &PathBuf) -> Result<(), ServicingError> {
     // delete a file in the provided directory
     match fs::remove_file(filepath) {
         Ok(_) => {
@@ -84,7 +84,7 @@ pub(super) fn delete_file(filepath: &PathBuf) -> Result<(), ServicingError> {
     }
 }
 
-pub(super) fn write_to_file(filepath: &PathBuf, content: &str) -> Result<(), ServicingError> {
+pub fn write_to_file(filepath: &PathBuf, content: &str) -> Result<(), ServicingError> {
     // write content to a file in the provided file
     match fs::write(filepath, content) {
         Ok(_) => {
@@ -95,7 +95,7 @@ pub(super) fn write_to_file(filepath: &PathBuf, content: &str) -> Result<(), Ser
     }
 }
 
-pub(super) fn write_to_file_binary(
+pub fn write_to_file_binary(
     filepath: &PathBuf,
     content: &[u8],
 ) -> Result<(), ServicingError> {
@@ -109,7 +109,7 @@ pub(super) fn write_to_file_binary(
     }
 }
 
-pub(super) fn read_from_file_binary(filepath: &PathBuf) -> Result<Vec<u8>, ServicingError> {
+pub fn read_from_file_binary(filepath: &PathBuf) -> Result<Vec<u8>, ServicingError> {
     // read content from a file in the provided file
     match fs::read(filepath) {
         Ok(content) => {
@@ -121,7 +121,7 @@ pub(super) fn read_from_file_binary(filepath: &PathBuf) -> Result<Vec<u8>, Servi
 }
 
 #[allow(dead_code)]
-pub(super) fn read_from_child<T>(
+pub fn read_from_child<T>(
     mut child: T,
 ) -> (Receiver<Vec<u8>>, JoinHandle<Result<(), ServicingError>>)
 where
