@@ -9,7 +9,7 @@ mod dispatch;
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn servicing2(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn servicing(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // if release mode, set log level to warn
     if cfg!(not(debug_assertions)) {
         Builder::new().filter_level(log::LevelFilter::Warn).init();
