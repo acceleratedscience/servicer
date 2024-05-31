@@ -1,7 +1,12 @@
-use std::sync::{mpsc, PoisonError};
+use std::{
+    result,
+    sync::{mpsc, PoisonError},
+};
 
 use pyo3::{exceptions::PyRuntimeError, PyErr};
 use thiserror::Error;
+
+pub type Result<T> = result::Result<T, ServicingError>;
 
 #[allow(dead_code)] // Remove this later
 #[derive(Debug, Error)]
@@ -36,6 +41,8 @@ pub enum ServicingError {
     LockError(String),
     #[error("{0}")]
     Base64Error(#[from] base64::DecodeError),
+    #[error("{0}")]
+    TryCurrentError(#[from] tokio::runtime::TryCurrentError),
 }
 
 impl From<ServicingError> for PyErr {
